@@ -1,0 +1,264 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  OWNER
+  TENANT
+  AGENT
+  VENDOR 
+}
+
+enum PropertyStatus {
+  PENDING   
+  VERIFIED  
+  REJECTED  
+  SOLD
+  RENTED
+}
+
+enum PropertyType {
+  APARTMENT
+  DUPLEX
+  HOUSE
+  LAND
+  COMMERCIAL
+  OTHER
+}
+
+enum ListingType {
+  RENTAL
+  SALE
+  SHORTLET
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+// -----------------------------------------------------------------------------
+// MODELS
+// -----------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?   // Made optional for progressive onboarding
+  passwordHash  String?   // Made optional for Google/Apple OAuth users
+  role          Role      @default(TENANT)
+  phone         String?
+  address       String?
+  isVerified    Boolean   @default(false) // Use this for KYC / ID Verification
+  
+  // Auth.js required fields
+  emailVerified DateTime? 
+  image         String?   // Stores OAuth profile picture
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // NextAuth Relationships
+  accounts      Account[]
+  sessions      Session[]
+
+  // Existing Relationships
+  ownedProperties   Property[]  @relation("PropertyOwner")
+  tenancies         Lease[]     @relation("TenantLeases")
+  agentReferrals    Lease[]     @relation("AgentReferrals")
+  assignedTickets   Ticket[]    @relation("VendorTickets")
+  createdTickets    Ticket[]    @relation("TenantTickets")
+}
+
+// -----------------------------------------------------------------------------
+// NEXTAUTH MODELS
+// -----------------------------------------------------------------------------
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
+
+// -----------------------------------------------------------------------------
+// APP DATA MODELS
+// -----------------------------------------------------------------------------
+model Property {
+  id                 String         @id @default(uuid())
+  title              String
+  description        String
+  
+  // Location
+  state              String?        
+  locationArea       String         
+  address            String         
+  latitude           Float?         
+  longitude          Float?
+  
+  // Categorization
+  listingType        ListingType
+  propertyType       PropertyType   @default(APARTMENT) 
+  status             PropertyStatus @default(PENDING) 
+  images             String[]       
+  
+  // Base Physical Attributes
+  bedrooms           Int
+  bathrooms          Int
+  toilets            Int?           
+  parkingSpaces      Int?           
+  size               Int?           
+  
+  // Dynamic Physical Attributes (From Step 2)
+  bedroomTypes       String[]       
+  totalUnits         Int?           
+  availableUnits     Int?           
+  shortletBedrooms   String?        
+      
+  // NEW: Dynamic Document Field (From Step 5)
+  documents          String[]
+
+  // Cost Breakdown
+  basePrice          Float          
+  unitPrices         Json?          // Stores specific prices per bedroom type
+  serviceCharge      Float?
+  cautionFee         Float?
+  legalFee           Float?
+  agencyFee          Float?         
+  commissionPct      Float?         
+  
+  // NEW: Dynamic Pricing Fields (From Step 3)
+  tenancyDuration    String?
+  installmentalPrice Float?
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  // Relationships
+  ownerId            String
+  owner              User           @relation("PropertyOwner", fields: [ownerId], references: [id])
+  leases             Lease[]
+  tickets            Ticket[]
+  units              Unit[]         // NEW: Relationship to individual units
+}
+
+model Unit {
+  id             String    @id @default(uuid())
+  name           String    // e.g., "Unit 1A", "Flat 3"
+  type           String    // e.g., "Single room", "2-bedroom Flat"
+  price          Float     // Specific price for this exact unit
+  status         String    @default("VACANT") // "VACANT", "OCCUPIED"
+  
+  // Relationships
+  propertyId     String
+  property       Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  // Tenant Tracking
+  tenantName     String?   
+  tenantPhone    String?   // NEW
+  rentStartDate  DateTime? // NEW
+  rentEndDate    DateTime? // NEW
+  tenantId       String?  
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Lease {
+  id              String    @id @default(uuid())
+  startDate       DateTime
+  endDate         DateTime
+  rentAmount      Float
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relationships
+  propertyId      String
+  property        Property  @relation(fields: [propertyId], references: [id])
+  
+  tenantId        String
+  tenant          User      @relation("TenantLeases", fields: [tenantId], references: [id])
+  
+  agentId         String?   
+  agent           User?     @relation("AgentReferrals", fields: [agentId], references: [id])
+
+  payments        Payment[]
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  amount          Float
+  dueDate         DateTime
+  datePaid        DateTime?
+  status          PaymentStatus @default(PENDING)
+  receiptUrl      String?       
+
+  // Relationships
+  leaseId         String
+  lease           Lease         @relation(fields: [leaseId], references: [id])
+}
+
+model Ticket {
+  id              String        @id @default(uuid())
+  title           String
+  description     String
+  status          TicketStatus  @default(OPEN)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relationships
+  propertyId      String
+  property        Property      @relation(fields: [propertyId], references: [id])
+  
+  creatorId       String        
+  creator         User          @relation("TenantTickets", fields: [creatorId], references: [id])
+  
+  vendorId        String?       
+  vendor          User?         @relation("VendorTickets", fields: [vendorId], references: [id])
+}
