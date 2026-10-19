@@ -1,10 +1,10 @@
 import Image from 'next/image'
 import { Heart, MapPin, Bed, Bath, Maximize } from 'lucide-react'
-import { Property } from '@prisma/client'
+import type { Property } from '@prisma/client'
 
 // Using a partial type since we might not fetch the entire relational graph every time
 type PropertyCardProps = {
-  property: Pick<Property, 'id' | 'title' | 'basePrice' | 'locationArea' | 'bedrooms' | 'bathrooms' | 'sizeSqm' | 'images' | 'status'>
+  property: Pick<Property, 'id' | 'title' | 'basePrice' | 'locationArea' | 'bedrooms' | 'bathrooms' | 'size' | 'images' | 'status'>
 }
 
 export default function PropertyCard({ property }: PropertyCardProps) {
@@ -65,9 +65,9 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           <div className="flex items-center gap-1">
             <Bath className="w-4 h-4" /> {property.bathrooms} Baths
           </div>
-          {property.sizeSqm && (
+          {property.size !== null && property.size > 0 && (
             <div className="flex items-center gap-1">
-              <Maximize className="w-4 h-4" /> {property.sizeSqm} sqm
+              <Maximize className="w-4 h-4" /> {property.size} sqm
             </div>
           )}
         </div>
