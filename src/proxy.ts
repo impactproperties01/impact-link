@@ -33,7 +33,6 @@ export default auth((req) => {
 
 // Specify which routes the middleware should run on
 export const config = {
-  runtime: 'nodejs',
   matcher: [
     '/((?!api|_next/static|_next/image|favicon.ico|hero-image.png|logo.png).*)',
   ],
