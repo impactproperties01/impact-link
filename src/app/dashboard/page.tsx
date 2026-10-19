@@ -1,4 +1,6 @@
 import { auth } from '@/auth'
+import { getCurrentUser } from '@/lib/admin'
+import { redirect } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Plus, CreditCard, ChevronRight, Home, Building, Users, HomeIcon, MapPin, Bed, Bath, Maximize, Heart, FileText } from 'lucide-react'
@@ -8,6 +10,7 @@ export const metadata = { title: 'Dashboard | Impact Link' }
 
 export default async function DashboardPage() {
   const session = await auth()
+  if ((await getCurrentUser())?.role === 'ADMIN') redirect('/dashboard/admin/listings')
   const userId = session?.user?.id
   const firstName = session?.user?.name?.split(' ')[0] || 'Daniel'
 
@@ -80,7 +83,7 @@ export default async function DashboardPage() {
 
       {/* Action Buttons */}
       <div className="grid grid-cols-2 md:flex md:gap-4 gap-3">
-        <Link href="/dashboard/properties/new" className="bg-brand-forest text-white py-3.5 px-4 rounded-[16px] font-bold text-[14px] flex items-center justify-center gap-2 shadow-sm md:w-[200px] hover:bg-brand-dark transition-colors">
+        <Link href="/properties/new" className="bg-brand-forest text-white py-3.5 px-4 rounded-[16px] font-bold text-[14px] flex items-center justify-center gap-2 shadow-sm md:w-[200px] hover:bg-brand-dark transition-colors">
           <Plus className="w-5 h-5" /> Add Property
         </Link>
         <button className="bg-white border border-gray-200 text-brand-dark py-3.5 px-4 rounded-[16px] font-bold text-[14px] flex items-center justify-center gap-2 shadow-[0_2px_10px_rgba(0,0,0,0.02)] md:w-[200px] hover:bg-gray-50 transition-colors">

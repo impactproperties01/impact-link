@@ -1,77 +1,88 @@
 import Image from 'next/image'
-import { Heart, MapPin, Bed, Bath, Maximize } from 'lucide-react'
+import Link from 'next/link'
+import { BadgeCheck, MapPin, Bed, Bath, Maximize, Building2 } from 'lucide-react'
 import type { Property } from '@prisma/client'
+import { formatNaira, getListingTitle, getListingPricing } from '@/lib/property-display'
 
-// Using a partial type since we might not fetch the entire relational graph every time
 type PropertyCardProps = {
-  property: Pick<Property, 'id' | 'title' | 'basePrice' | 'locationArea' | 'bedrooms' | 'bathrooms' | 'size' | 'images' | 'status'>
+  property: Pick<Property,
+    'id' | 'listingType' | 'propertyType' | 'address' | 'basePrice' | 'locationArea' |
+    'bedrooms' | 'bathrooms' | 'bedroomTypes' | 'shortletBedrooms' | 'size' |
+    'images' | 'status' | 'tenancyDuration' | 'unitPrices' | 'totalUnits' | 'availableUnits'
+  >
 }
 
 export default function PropertyCard({ property }: PropertyCardProps) {
-  // Format the price to Nigerian Naira (₦)
-  const formattedPrice = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(property.basePrice)
+  if (property.status !== 'VERIFIED') return null
+
+  const title = getListingTitle(property)
+  const isRentalApartment = property.listingType === 'RENTAL' && property.propertyType === 'APARTMENT'
+  const { price, hasPriceRange, priceSuffix } = getListingPricing(property)
+  const listingLabel = property.listingType === 'SALE' ? 'For sale' : property.listingType === 'SHORTLET' ? 'Shortlet' : 'For rent'
+  const showRooms = property.propertyType !== 'LAND'
+  const hasAttributes = (showRooms && (property.bedrooms > 0 || property.bathrooms > 0)) ||
+    (property.size !== null && property.size > 0) ||
+    (isRentalApartment && (property.totalUnits !== null || property.availableUnits !== null))
 
   return (
-    <div className="flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-      {/* Image Container with Badges */}
-      <div className="relative h-48 w-full">
-        <Image 
-          src={property.images[0] || '/placeholder-house.jpg'} 
-          alt={property.title}
-          fill
-          className="object-cover"
-        />
-        
-        {/* Verified Badge */}
-        {property.status === 'VERIFIED' && (
-          <div className="absolute top-3 left-3 bg-brand-forest text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
-            <span className="w-2 h-2 bg-white rounded-full flex items-center justify-center">
-              <span className="text-brand-forest text-[8px]">✓</span>
-            </span>
-            Verified
+    <Link href={`/properties/${property.id}`} aria-label={`View listing: ${title}`} className="flex h-full flex-col bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition hover:shadow-md hover:border-brand-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:ring-offset-2">
+      <div className="relative h-48 w-full bg-gray-100">
+        {property.images[0] ? (
+          <Image
+            src={property.images[0]}
+            alt={title}
+            fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 260px"
+            className="object-cover"
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-gray-400">
+            <Building2 className="h-10 w-10" aria-hidden="true" />
+            <span className="text-sm">No photo provided</span>
           </div>
         )}
-
-        {/* Favorite Button */}
-        <button className="absolute top-3 right-3 p-2 bg-white/20 backdrop-blur-md rounded-full hover:bg-white/40 transition">
-          <Heart className="w-5 h-5 text-white" />
-        </button>
+        <div className="absolute top-3 left-3 bg-brand-forest text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
+          <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+          Verified
+        </div>
+        <span className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand-dark">
+          {listingLabel}
+        </span>
       </div>
 
-      {/* Content Details */}
-      <div className="p-4">
-        <div className="flex justify-between items-start mb-1">
-          <h3 className="font-bold text-lg text-brand-dark">
-            {formattedPrice} <span className="text-sm font-normal text-gray-500">/ year</span>
-          </h3>
-        </div>
-        
-        <p className="text-brand-dark font-medium mb-1">{property.title}</p>
-        
-        <div className="flex items-center text-gray-500 text-sm mb-4">
-          <MapPin className="w-4 h-4 mr-1" />
-          {property.locationArea}
-        </div>
-
-        {/* Attributes Row */}
-        <div className="flex items-center gap-4 text-gray-600 text-sm">
-          <div className="flex items-center gap-1">
-            <Bed className="w-4 h-4" /> {property.bedrooms} Beds
+      <div className="flex flex-1 flex-col p-4">
+        <p className="mb-2 font-bold text-lg text-brand-dark">
+          {hasPriceRange && <span className="text-sm font-normal text-gray-500">From </span>}
+          {formatNaira(price)}{' '}
+          {priceSuffix && <span className="text-sm font-normal text-gray-500">{priceSuffix}</span>}
+        </p>
+        <h3 className="text-brand-dark font-medium mb-2 leading-snug">{title}</h3>
+        {(property.locationArea || property.address) && (
+          <p className="flex items-start text-gray-500 text-sm mb-4">
+            <MapPin className="w-4 h-4 mr-1 shrink-0 mt-0.5" aria-hidden="true" />
+            {property.locationArea || property.address}
+          </p>
+        )}
+        {hasAttributes && (
+          <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-3 text-gray-600 text-sm">
+            {showRooms && property.bedrooms > 0 && (
+              <span className="flex items-center gap-1"><Bed className="w-4 h-4" aria-hidden="true" />{property.bedrooms} {property.bedrooms === 1 ? 'Bed' : 'Beds'}</span>
+            )}
+            {showRooms && property.bathrooms > 0 && (
+              <span className="flex items-center gap-1"><Bath className="w-4 h-4" aria-hidden="true" />{property.bathrooms} {property.bathrooms === 1 ? 'Bath' : 'Baths'}</span>
+            )}
+            {property.size !== null && property.size > 0 && (
+              <span className="flex items-center gap-1"><Maximize className="w-4 h-4" aria-hidden="true" />{property.size} sqm</span>
+            )}
+            {isRentalApartment && property.totalUnits !== null && (
+              <span>{property.totalUnits} {property.totalUnits === 1 ? 'unit' : 'units'}</span>
+            )}
+            {isRentalApartment && property.availableUnits !== null && (
+              <span>{property.availableUnits} available</span>
+            )}
           </div>
-          <div className="flex items-center gap-1">
-            <Bath className="w-4 h-4" /> {property.bathrooms} Baths
-          </div>
-          {property.size !== null && property.size > 0 && (
-            <div className="flex items-center gap-1">
-              <Maximize className="w-4 h-4" /> {property.size} sqm
-            </div>
-          )}
-        </div>
+        )}
       </div>
-    </div>
+    </Link>
   )
 }

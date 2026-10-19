@@ -2,6 +2,9 @@
 
 import { ChevronLeft, ChevronRight, MapPin, Bed, Bath, CheckCircle2, Home, Maximize, Hash, FileText, Check } from 'lucide-react'
 import Link from 'next/link'
+import { getListingContactHref } from '@/lib/support'
+import { getPropertyFees } from '@/lib/property-fees'
+import InspectionContact from '@/components/properties/InspectionContact'
 
 export default function PropertyViewClient({ property }: { property: any }) {
   const isRent = property.listingType === 'RENTAL'
@@ -45,8 +48,7 @@ export default function PropertyViewClient({ property }: { property: any }) {
   // Standard Rent Calculations
   const basePrice = Number(property.basePrice) || 0
   const cautionFee = Number(property.cautionFee) || 0
-  const agreementFee = property.legalFee || (basePrice * 0.20)
-  const platformFee = property.commissionPct || (basePrice * 0.20)
+  const { agreementFee, platformFee, agreementPct, platformPct } = getPropertyFees(property)
   const totalStandardRent = basePrice + (property.serviceCharge || 0) + cautionFee + agreementFee + platformFee + (property.agencyFee || 0)
 
   return (
@@ -81,7 +83,11 @@ export default function PropertyViewClient({ property }: { property: any }) {
             }`}>
               {property.status === 'VERIFIED' ? 'Verified & Live' : 
                property.status === 'PENDING' ? 'Pending Verification' : 
+               property.status === 'REJECTED' ? 'Rejected' :
                'Draft / Inactive'}
+              {property.status === 'REJECTED' && (
+                <a href={getListingContactHref(property.id)} className="ml-3 text-brand-forest underline underline-offset-2">Contact</a>
+              )}
             </p>
             <p className={`text-[12px] mt-1 leading-relaxed ${
               property.status === 'VERIFIED' ? 'text-[#005C3A]/80' : 
@@ -187,6 +193,8 @@ export default function PropertyViewClient({ property }: { property: any }) {
               </div>
             )}
 
+            <InspectionContact name={property.inspectionContactName} phone={property.inspectionContactPhone} />
+
             {/* Description */}
             {isValidDescription && (
               <div className={(!isSale || isLand) ? "" : "pt-4 lg:pt-0 lg:border-t-0 border-t border-gray-100"}>
@@ -266,12 +274,14 @@ export default function PropertyViewClient({ property }: { property: any }) {
                     </div>
                   )}
 
-                  {!!property.legalFee && (
-                    <div className="flex justify-between items-center text-[13px] lg:text-[14px]">
-                      <span className="text-gray-500">Legal / Agreement Fee</span>
-                      <span className="font-bold text-[#091F11]">₦{property.legalFee.toLocaleString()}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center text-[13px] lg:text-[14px]">
+                    <span className="text-gray-500">Agreement Fee ({Number(agreementPct.toFixed(2))}%)</span>
+                    <span className="font-bold text-[#091F11]">₦{agreementFee.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[13px] lg:text-[14px]">
+                    <span className="text-gray-500">Platform Fee ({platformPct}%)</span>
+                    <span className="font-bold text-[#091F11]">₦{platformFee.toLocaleString()}</span>
+                  </div>
 
                   {!!property.agencyFee && (
                     <div className="flex justify-between items-center text-[13px] lg:text-[14px]">
@@ -296,8 +306,7 @@ export default function PropertyViewClient({ property }: { property: any }) {
                   {Object.entries(property.unitPrices).map(([type, price]) => {
                     const uPrice = Number(price)
                     if (uPrice <= 0) return null
-                    const uAgreement = uPrice * 0.20
-                    const uPlatform = uPrice * 0.20
+                    const { agreementFee: uAgreement, platformFee: uPlatform } = getPropertyFees(property, uPrice)
                     const uTotal = uPrice + cautionFee + uAgreement + uPlatform
 
                     return (
@@ -313,11 +322,11 @@ export default function PropertyViewClient({ property }: { property: any }) {
                           </div>
                         )}
                         <div className="flex justify-between items-center text-[12px] lg:text-[13px]">
-                          <span className="text-gray-500">Agreement Fee (20%)</span>
+                          <span className="text-gray-500">Agreement Fee ({Number(agreementPct.toFixed(2))}%)</span>
                           <span className="font-medium text-[#091F11]">₦{uAgreement.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center text-[12px] lg:text-[13px]">
-                          <span className="text-gray-500">Platform Fee (20%)</span>
+                          <span className="text-gray-500">Platform Fee ({platformPct}%)</span>
                           <span className="font-medium text-[#091F11]">₦{uPlatform.toLocaleString()}</span>
                         </div>
                         <div className="pt-2 lg:pt-3 mt-2 lg:mt-3 border-t border-gray-200 flex justify-between items-center">

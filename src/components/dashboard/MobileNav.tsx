@@ -2,12 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, LayoutDashboard, Users, CreditCard, MoreHorizontal } from 'lucide-react'
+import { Home, LayoutDashboard, Users, CreditCard, MoreHorizontal, ClipboardCheck } from 'lucide-react'
 
-export default function MobileNav() {
+export default function MobileNav({ role }: { role?: string }) {
   const pathname = usePathname()
 
-  const links = [
+  const links = role === 'ADMIN' ? [
+    { name: 'Listing Reviews', href: '/dashboard/admin/listings', icon: ClipboardCheck },
+    { name: 'Marketplace', href: '/', icon: Home },
+  ] : [
     { name: 'Overview', href: '/dashboard', icon: Home },
     { name: 'Properties', href: '/dashboard/properties', icon: LayoutDashboard },
     { name: 'Tenants', href: '/dashboard/tenants', icon: Users },

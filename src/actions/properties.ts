@@ -5,6 +5,8 @@ import { auth } from '@/auth'
 import { v2 as cloudinary } from 'cloudinary'
 import { propertySchema } from '@/components/properties/schema'
 import { revalidatePath } from 'next/cache'
+import { getListingFeeFields } from '@/lib/property-fees'
+import { getInspectionContactInput, inspectionContactSchema } from '@/lib/inspection-contact'
 
 // Ensure your .env contains these three variables
 cloudinary.config({
@@ -33,6 +35,14 @@ export async function createPropertyAction(formData: FormData) {
     }
 
     const propertyData = validatedData.data 
+    const owner = await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true, phone: true } })
+    if (!owner) return { success: false, error: 'Your account could not be found. Please sign in again.' }
+    const inspectionContact = inspectionContactSchema.safeParse(getInspectionContactInput(propertyData, owner))
+    if (!inspectionContact.success) {
+      return { success: false, error: propertyData.inspectionContactType === 'OWNER'
+        ? 'Your account needs a valid name and phone number. Choose Input details in the Inspection step.'
+        : inspectionContact.error.issues[0]?.message || 'Enter valid inspection contact details.' }
+    }
     const imageUrls: string[] = []
 
     // 3. Upload Images to Cloudinary via Stream
@@ -68,6 +78,9 @@ export async function createPropertyAction(formData: FormData) {
     const newProperty = await prisma.property.create({
       data: {
         ...restData,
+        ...getListingFeeFields(propertyData.listingType, propertyData.basePrice),
+        inspectionContactName: inspectionContact.data.name,
+        inspectionContactPhone: inspectionContact.data.phone,
         title: title || "",             
         description: description || "", 
         bedrooms: bedrooms || 0,

@@ -1,7 +1,8 @@
 'use client'
 
-import { Home, Heart, MessageSquare, User } from 'lucide-react'
+import { Home, Heart, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
+import AccountMenu from '@/components/marketplace/AccountMenu'
 import { usePathname } from 'next/navigation'
 import { clsx } from 'clsx'
 
@@ -12,7 +13,6 @@ export default function BottomNav() {
     { name: 'Home', href: '/', icon: Home },
     { name: 'Saved', href: '/saved', icon: Heart },
     { name: 'Messages', href: '/messages', icon: MessageSquare },
-    { name: 'Profile', href: '/profile', icon: User },
   ]
 
   return (
@@ -35,6 +35,7 @@ export default function BottomNav() {
             </Link>
           )
         })}
+        <AccountMenu variant="bottom" />
       </div>
     </nav>
   )

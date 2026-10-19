@@ -1,4 +1,5 @@
 import { auth } from '@/auth'
+import { getCurrentUser } from '@/lib/admin'
 import { redirect } from 'next/navigation'
 import Sidebar from '@/components/dashboard/Sidebar'
 import TopNav from '@/components/dashboard/TopNav'
@@ -13,13 +14,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // --- THE FIX: THE DASHBOARD BOUNCER ---
   // If the user hasn't completed onboarding, intercept them here and route them
-  const user = session.user as any
-  if (!user.isVerified) {
-    if (user.role === 'OWNER') {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) redirect('/login')
+  const user = session.user as typeof session.user & { isVerified?: boolean }
+  const role = currentUser.role
+  if (role !== 'ADMIN' && !user.isVerified) {
+    if (role === 'OWNER') {
       redirect('/onboarding/landlord')
-    } else if (user.role === 'AGENT') {
+    } else if (role === 'AGENT') {
       redirect('/onboarding/agent')
-    } else if (user.role === 'VENDOR') {
+    } else if (role === 'VENDOR') {
       redirect('/onboarding/vendor')
     }
     // Tenants default to dashboard, so they pass through
@@ -27,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen bg-white md:bg-[#F8FAFC] overflow-hidden">
-      <Sidebar role={user.role} />
+      <Sidebar role={role} />
       
       <div className="flex flex-col flex-1 w-full overflow-hidden">
         <TopNav user={session.user} />
@@ -36,7 +40,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {children}
         </main>
 
-        <MobileNav />
+        <MobileNav role={role} />
       </div>
     </div>
   )

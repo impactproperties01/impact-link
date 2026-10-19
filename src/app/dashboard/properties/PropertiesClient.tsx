@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { getListingContactHref } from '@/lib/support'
 import { 
   Search, SlidersHorizontal, MapPin, Camera, 
   Building, Users, Home, BarChart2, Plus, Trash2, Eye 
@@ -141,7 +142,8 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                   <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                     <div className={`px-2 py-0.5 rounded-full flex items-center gap-1 text-[10px] font-bold ${
                       prop.status === 'Approved' ? 'bg-[#E8F5E9] text-[#005C3A]' : 
-                      prop.status === 'Pending' ? 'bg-[#FFFBEB] text-[#D97706]' : 
+                      prop.status === 'Pending' ? 'bg-[#FFFBEB] text-[#D97706]' :
+                      prop.status === 'Rejected' ? 'bg-red-50 text-red-600' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${
@@ -151,6 +153,9 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                       }`}></div>
                       {prop.status}
                     </div>
+                    {prop.status === 'Rejected' && (
+                      <a href={getListingContactHref(prop.id)} className="text-[11px] font-bold text-brand-forest underline underline-offset-2">Contact</a>
+                    )}
                   </div>
                 </div>
 

@@ -45,6 +45,11 @@ enum ListingType {
   SHORTLET
 }
 
+enum InspectionContactType {
+  OWNER
+  CUSTOM
+}
+
 enum PaymentStatus {
   PENDING
   PAID
@@ -163,6 +168,11 @@ model Property {
       
   // NEW: Dynamic Document Field (From Step 5)
   documents          String[]
+
+  // Contact saved for arranging property inspections
+  inspectionContactType  InspectionContactType?
+  inspectionContactName  String?
+  inspectionContactPhone String?
 
   // Cost Breakdown
   basePrice          Float          

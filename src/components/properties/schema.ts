@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { inspectionContactSchema } from '@/lib/inspection-contact'
 
 export const propertySchema = z.object({
   listingType: z.enum(['RENTAL', 'SALE', 'SHORTLET']),
@@ -41,8 +42,20 @@ export const propertySchema = z.object({
   tenancyDuration: z.string().optional().or(z.literal('')),
   installmentalPrice: z.coerce.number().optional().catch(undefined),
   
+  inspectionContactType: z.enum(['OWNER', 'CUSTOM']).default('OWNER'),
+  inspectionContactName: z.string().trim().max(100).optional(),
+  inspectionContactPhone: z.string().trim().max(30).optional(),
+
   // Documents array
   documents: z.array(z.string()).optional(),
+}).superRefine((data, context) => {
+  if (data.inspectionContactType !== 'CUSTOM') return
+  const contact = inspectionContactSchema.safeParse({ name: data.inspectionContactName || '', phone: data.inspectionContactPhone || '' })
+  if (!contact.success) {
+    for (const issue of contact.error.issues) {
+      context.addIssue({ code: 'custom', path: [issue.path[0] === 'name' ? 'inspectionContactName' : 'inspectionContactPhone'], message: issue.message })
+    }
+  }
 })
 
 export type PropertyFormData = z.infer<typeof propertySchema>

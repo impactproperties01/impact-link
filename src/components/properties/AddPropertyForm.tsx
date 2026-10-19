@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useForm, FormProvider } from 'react-hook-form'
+import { useForm, FormProvider, type FieldPath, type FieldErrors, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ChevronLeft } from 'lucide-react'
 import { propertySchema, type PropertyFormData } from './schema'
@@ -14,16 +14,18 @@ import Step3Pricing from './steps/Step3Pricing'
 import Step4Media from './steps/Step4Media'
 import Step5Documents from './steps/Step5Features' // Ensure this matches your actual filename
 import Step6Preview from './steps/Step6Preview'
+import Step5Inspection from './steps/Step5Inspection'
+import { getInspectionContactInput, inspectionContactSchema, type OwnerInspectionContact } from '@/lib/inspection-contact'
 import SuccessScreen from './SuccessScreen'
 
-export default function AddPropertyForm() {
+export default function AddPropertyForm({ ownerContact = null }: { ownerContact?: OwnerInspectionContact }) {
   const [currentStep, setCurrentStep] = useState(1)
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
 
 const methods = useForm<PropertyFormData>({
-    resolver: zodResolver(propertySchema) as any, // <-- Add "as any" here
+    resolver: zodResolver(propertySchema) as Resolver<PropertyFormData>,
     defaultValues: {
       listingType: 'RENTAL',
       propertyType: 'APARTMENT',
@@ -44,28 +46,25 @@ const methods = useForm<PropertyFormData>({
       legalFee: 0,       // Agreement Fee
       agencyFee: 0,      // Agency Fee
       commissionPct: 0,
-      documents: []
+      documents: [],
+      inspectionContactType: 'OWNER',
+      inspectionContactName: '',
+      inspectionContactPhone: ''
     }
   })
 
   const listingType = methods.watch('listingType')
   const isSale = listingType === 'SALE'
 
-  const STEPS = isSale ? [
+  const STEPS = [
     { id: 1, name: 'Basic Info' },
     { id: 2, name: 'Details' },
     { id: 3, name: 'Pricing' },
     { id: 4, name: 'Media' },
-    { id: 5, name: 'Documents' }, 
-    { id: 6, name: 'Preview' }
-  ] : [
-    { id: 1, name: 'Basic Info' },
-    { id: 2, name: 'Details' },
-    { id: 3, name: 'Pricing' },
-    { id: 4, name: 'Media' },
-    { id: 5, name: 'Preview' }
+    { id: 5, name: 'Inspection' },
+    ...(isSale ? [{ id: 6, name: 'Documents' }] : []),
+    { id: isSale ? 7 : 6, name: 'Preview' },
   ]
-
   const isPreviewStep = currentStep === STEPS.length
 
   useEffect(() => {
@@ -77,7 +76,7 @@ const methods = useForm<PropertyFormData>({
   // STRICT VALIDATION GATEKEEPER
   const nextStep = async () => {
     const values = methods.getValues()
-    let fieldsToValidate: any = []
+    let fieldsToValidate: FieldPath<PropertyFormData>[] = []
 
     // --- STEP 1 VALIDATION ---
     if (currentStep === 1) {
@@ -122,8 +121,19 @@ const methods = useForm<PropertyFormData>({
       }
     }
 
-    // --- STEP 5 VALIDATION (SALE ONLY) ---
-    if (isSale && currentStep === 5) {
+    if (currentStep === 5) {
+      if (values.inspectionContactType === 'OWNER') {
+        const contact = inspectionContactSchema.safeParse(getInspectionContactInput(values, ownerContact))
+        if (!contact.success) {
+          methods.setError('inspectionContactType', { type: 'manual', message: 'Your account needs a valid name and phone number. Select Input details to provide an inspection contact.' })
+          return
+        }
+      }
+      fieldsToValidate = ['inspectionContactType', 'inspectionContactName', 'inspectionContactPhone']
+    }
+
+    // --- DOCUMENTS VALIDATION (SALE ONLY) ---
+    if (isSale && currentStep === 6) {
       if (!values.documents || values.documents.length === 0) {
         return alert("Please select at least one legal document (e.g., Receipt, Contract of Sale, or C of O).")
       }
@@ -163,13 +173,14 @@ const methods = useForm<PropertyFormData>({
   }
 
   // --- ERROR CATCHER ADDED HERE ---
-  const onValidationError = (errors: any) => {
+  const onValidationError = (errors: FieldErrors<PropertyFormData>) => {
     console.error("Zod Validation Errors:", errors)
     const errorKeys = Object.keys(errors)
     if (errorKeys.length > 0) {
-      const firstKey = errorKeys[0]
+      const firstKey = errorKeys[0] as keyof PropertyFormData
+      if (firstKey.startsWith('inspectionContact')) setCurrentStep(5)
       // This will pop up exactly what is blocking your submission!
-      alert(`Submission blocked by hidden rule on "${firstKey}": ${errors[firstKey].message}`)
+      alert(`Submission blocked by hidden rule on "${firstKey}": ${errors[firstKey]?.message}`)
     }
   }
 
@@ -242,8 +253,9 @@ const methods = useForm<PropertyFormData>({
           {currentStep === 3 && <Step3Pricing />}
           {currentStep === 4 && <Step4Media imageFiles={imageFiles} setImageFiles={setImageFiles} />}
           
-          {isSale && currentStep === 5 && <Step5Documents />}
-          {(isSale ? currentStep === 6 : currentStep === 5) && <Step6Preview imageFiles={imageFiles} />}
+          {currentStep === 5 && <Step5Inspection ownerContact={ownerContact} />}
+          {isSale && currentStep === 6 && <Step5Documents />}
+          {isPreviewStep && <Step6Preview imageFiles={imageFiles} ownerContact={ownerContact} />}
 
           <div className={`flex flex-col gap-3 ${currentStep === 2 ? 'mt-6 px-4 md:px-6' : 'mt-6'}`}>
             {!isPreviewStep ? (

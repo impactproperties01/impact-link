@@ -3,14 +3,18 @@
 import { useFormContext } from 'react-hook-form'
 import { Eye, Check, ChevronLeft, ChevronRight, MapPin, Bed, Bath, CheckCircle2, Home, Maximize, Hash, FileText } from 'lucide-react'
 import type { PropertyFormData } from '../schema'
+import InspectionContact from '../InspectionContact'
+import { getInspectionContactInput, type OwnerInspectionContact } from '@/lib/inspection-contact'
 
 interface Step6PreviewProps {
   imageFiles: File[]
+  ownerContact?: OwnerInspectionContact
 }
 
-export default function Step6Preview({ imageFiles }: Step6PreviewProps) {
+export default function Step6Preview({ imageFiles, ownerContact = null }: Step6PreviewProps) {
   const { watch } = useFormContext<PropertyFormData>()
   const formValues = watch()
+  const inspectionContact = getInspectionContactInput(formValues, ownerContact)
 
   // Determine categories
   const isRent = formValues.listingType === 'RENTAL'
@@ -223,6 +227,8 @@ export default function Step6Preview({ imageFiles }: Step6PreviewProps) {
             ) : null}
           </div>
         )}
+
+        <InspectionContact name={inspectionContact.name} phone={inspectionContact.phone} />
 
         {/* Description */}
         {isValidDescription && (

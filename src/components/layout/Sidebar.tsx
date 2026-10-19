@@ -1,7 +1,10 @@
 'use client'
 
-import { Home, Heart, MessageSquare, User } from 'lucide-react'
+import { Home, Heart, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
+import logo from '../../../public/logo.png'
+import AccountMenu from '@/components/marketplace/AccountMenu'
 import { usePathname } from 'next/navigation'
 import { clsx } from 'clsx'
 
@@ -12,16 +15,15 @@ export default function Sidebar() {
     { name: 'Home', href: '/', icon: Home },
     { name: 'Saved', href: '/saved', icon: Heart },
     { name: 'Messages', href: '/messages', icon: MessageSquare },
-    { name: 'Profile', href: '/profile', icon: User },
   ]
 
   return (
     <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-white border-r border-gray-100 p-6 z-50">
       {/* Brand Logo Area */}
       <div className="mb-10">
-        <h1 className="text-2xl font-bold text-brand-dark flex items-center gap-2">
-          <span className="text-brand-emerald">⌂</span> Impact Link
-        </h1>
+        <Link href="/" aria-label="Impact Link home" className="inline-flex rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-forest focus-visible:ring-offset-2">
+          <Image src={logo} alt="Impact Link" sizes="160px" className="h-auto w-40 object-contain" />
+        </Link>
       </div>
 
       {/* Navigation Links */}
@@ -45,6 +47,7 @@ export default function Sidebar() {
             </Link>
           )
         })}
+        <AccountMenu variant="sidebar" />
       </nav>
     </aside>
   )

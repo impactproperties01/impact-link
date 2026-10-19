@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, LayoutDashboard, Users, FileText, Wrench, Settings, LogOut } from 'lucide-react'
+import { Home, LayoutDashboard, Users, FileText, Wrench, Settings, LogOut, ClipboardCheck } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 
 export default function Sidebar({ role }: { role: string }) {
@@ -13,7 +13,9 @@ export default function Sidebar({ role }: { role: string }) {
   const getLinks = () => {
     const baseLinks = [{ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }]
     
-    if (role === 'OWNER') {
+    if (role === 'ADMIN') {
+      baseLinks.push({ name: 'Listing Reviews', href: '/dashboard/admin/listings', icon: ClipboardCheck })
+    } else if (role === 'OWNER') {
       baseLinks.push(
         { name: 'My Properties', href: '/dashboard/properties', icon: Home },
         { name: 'Tenants & Leases', href: '/leases', icon: Users },
@@ -44,7 +46,7 @@ export default function Sidebar({ role }: { role: string }) {
         <nav className="p-4 space-y-1.5 mt-4">
           {links.map((link) => {
             const Icon = link.icon
-            const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`)
+            const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(`${link.href}/`))
             return (
               <Link
                 key={link.name}

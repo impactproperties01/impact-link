@@ -1,19 +1,33 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import { 
-  Bell, User, Search, SlidersHorizontal, 
-  Tag, Bed, Building, MoreHorizontal, ChevronDown, 
-  Home, ArrowRight 
-} from 'lucide-react'
+import { connection } from 'next/server'
+import { Bell, Bed, Building, ChevronLeft, ChevronRight, Home, ArrowRight } from 'lucide-react'
 import PropertyCard from '@/components/ui/PropertyCard'
 import prisma from '@/lib/prisma'
+import AccountMenu from '@/components/marketplace/AccountMenu'
+import MarketplaceSearch from '@/components/marketplace/MarketplaceSearch'
+import { listingTabs, parseMarketplaceFilters, marketplaceHref, marketplaceQuery, type MarketplaceParams } from '@/lib/marketplace'
 
-export default async function HomePage() {
-  const featuredProperties = await prisma.property.findMany({
-    where: { status: 'VERIFIED' },
-    take: 5,
-    orderBy: { createdAt: 'desc' }
+export default async function HomePage({ searchParams }: { searchParams: Promise<MarketplaceParams> }) {
+  await connection()
+  const filters = parseMarketplaceFilters(await searchParams)
+  const pageSize = 12
+  const results = await prisma.property.findMany({
+    ...marketplaceQuery(filters),
+    take: pageSize + 1,
+    skip: (filters.page - 1) * pageSize,
+
+    select: {
+      id: true, listingType: true, propertyType: true, address: true,
+      basePrice: true, locationArea: true, bedrooms: true, bathrooms: true,
+      bedroomTypes: true, shortletBedrooms: true, size: true, images: true,
+      status: true, tenancyDuration: true, unitPrices: true,
+      totalUnits: true, availableUnits: true,
+    }
   })
+
+  const hasNextPage = results.length > pageSize
+  const properties = results.slice(0, pageSize)
 
   return (
     <div className="flex flex-col pb-24 w-full overflow-x-hidden bg-white md:pb-10 relative">
@@ -35,9 +49,7 @@ export default async function HomePage() {
             <Bell className="w-5 h-5 text-brand-dark" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
           </button>
-          <button className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center border border-gray-200">
-            <User className="w-4 h-4 text-gray-500" />
-          </button>
+          <AccountMenu />
         </div>
       </header>
 
@@ -69,75 +81,55 @@ export default async function HomePage() {
 
           <div className="absolute bottom-0 left-4 right-4 flex bg-white/90 backdrop-blur-md p-1.5 rounded-full shadow-[0_4px_20px_rgb(0,0,0,0.08)] border border-gray-100 z-20
                           md:static md:bg-white md:shadow-sm md:max-w-lg md:p-2 md:ml-10 md:-mt-2">
-            <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 md:py-3 rounded-full text-sm font-semibold transition-all duration-300 bg-brand-forest text-white shadow-sm">
-              <Home className="w-4 h-4" /> Rent
-            </button>
-            <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 md:py-3 rounded-full text-sm font-semibold transition-all duration-300 text-gray-600 hover:text-brand-dark md:hover:bg-gray-50">
-              <Building className="w-4 h-4" /> Buy 
-            </button>
-            <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 md:py-3 rounded-full text-sm font-semibold transition-all duration-300 text-gray-600 hover:text-brand-dark md:hover:bg-gray-50">
-              <Bed className="w-4 h-4" /> Shortlet
-            </button>
+            {listingTabs.map((tab) => {
+              const Icon = tab.value === 'rent' ? Home : tab.value === 'buy' ? Building : Bed
+              const active = filters.listing === tab.value
+              return (
+                <Link
+                  key={tab.value}
+                  href={marketplaceHref(filters, { listing: tab.value, page: 1, duration: tab.value === 'rent' ? filters.duration : '' })}
+                  scroll={false}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 md:py-3 rounded-full text-sm font-semibold transition-all duration-300 ${active ? 'bg-brand-forest text-white shadow-sm' : 'text-gray-600 hover:text-brand-dark md:hover:bg-gray-50'}`}
+                >
+                  <Icon className="w-4 h-4" aria-hidden="true" />{tab.label}
+                </Link>
+              )
+            })}
           </div>
         </div>
 
-        {/* 3. Search & Filters */}
-        <div className="px-4 space-y-4 mt-6 md:px-8 md:max-w-3xl md:mt-8">
-          <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-2xl p-1.5 shadow-sm hover:border-gray-300 transition">
-            <div className="flex-1 flex items-center pl-3">
-              <Search className="w-5 h-5 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Search by area, estate or landmark" 
-                className="w-full bg-transparent border-none focus:ring-0 text-sm ml-2 text-brand-dark placeholder-gray-400 outline-none"
-              />
-            </div>
-            <button className="p-2 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100 transition">
-              <SlidersHorizontal className="w-5 h-5 text-brand-dark" />
-            </button>
-          </div>
-
-          <div className="flex overflow-x-auto hide-scrollbar gap-2.5 pb-1">
-            {[
-              { label: 'Price', icon: Tag },
-              { label: 'Beds', icon: Bed },
-              { label: 'Type', icon: Building },
-              { label: 'More', icon: MoreHorizontal },
-            ].map((filter) => (
-              <button 
-                key={filter.label}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full whitespace-nowrap text-sm font-medium text-brand-dark hover:border-brand-emerald transition"
-              >
-                <filter.icon className="w-4 h-4 text-gray-500" />
-                {filter.label}
-                <ChevronDown className="w-3 h-3 text-gray-400" />
-              </button>
-            ))}
-          </div>
+        {/* Search & Filters */}
+        <div className="px-4 mt-6 md:px-8 md:max-w-3xl md:mt-8">
+          <MarketplaceSearch filters={filters} />
         </div>
-
-        {/* 4. Featured Properties Grid */}
-        <section className="pl-4 mt-6 md:px-8 md:mt-10">
+        {/* Property results */}
+        <section id="listings" aria-label="Property results" className="pl-4 mt-6 md:px-8 md:mt-10">
           <div className="flex justify-between items-center mb-4 pr-4 md:pr-0">
-            <h2 className="text-lg md:text-xl font-bold text-brand-dark">Featured Properties</h2>
-            <button className="text-brand-emerald text-sm font-medium flex items-center hover:underline">
-              See all <ChevronDown className="w-4 h-4 ml-0.5 -rotate-90" />
-            </button>
+            <h2 className="text-lg md:text-xl font-bold text-brand-dark">{filters.heading}</h2>
+            <span className="text-sm text-gray-500">{properties.length}{hasNextPage ? '+' : ''} listings</span>
           </div>
           
           <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 hide-scrollbar pr-4 md:pr-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-6 md:overflow-visible">
-            {featuredProperties.length > 0 ? (
-              featuredProperties.map((property) => (
+            {properties.length > 0 ? (
+              properties.map((property) => (
                 <div key={property.id} className="snap-start min-w-[260px] w-[260px] md:w-full md:min-w-0">
                   <PropertyCard property={property} />
                 </div>
               ))
             ) : (
               <div className="md:col-span-full">
-                <p className="text-sm text-gray-500 italic">No verified properties found.</p>
+                <p className="text-sm text-gray-500">{filters.page > 1 ? 'No more properties on this page.' : 'No verified properties match your search.'}</p><Link href={`/?listing=${filters.listing}`} className="mt-2 inline-block text-sm font-semibold text-brand-forest hover:underline">View all {filters.listing === 'buy' ? 'properties for sale' : filters.listing === 'shortlet' ? 'shortlets' : 'properties for rent'}</Link>
               </div>
             )}
           </div>
+          {(filters.page > 1 || hasNextPage) && (
+            <nav aria-label="Listing pages" className="mt-5 flex items-center justify-between gap-3 pr-4 md:pr-0">
+              {filters.page > 1 ? <Link href={`${marketplaceHref(filters, { page: filters.page - 1 })}#listings`} className="flex items-center gap-1 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-brand-dark"><ChevronLeft className="h-4 w-4" aria-hidden="true" />Previous</Link> : <span />}
+              <span className="text-sm text-gray-500">Page {filters.page}</span>
+              {hasNextPage ? <Link href={`${marketplaceHref(filters, { page: filters.page + 1 })}#listings`} className="flex items-center gap-1 rounded-xl bg-brand-forest px-4 py-2 text-sm font-semibold text-white">Next<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : <span />}
+            </nav>
+          )}
         </section>
 
         {/* 5. Inline Pixel-Matched CTA Banner (Restored to regular document flow) */}
@@ -164,9 +156,9 @@ export default async function HomePage() {
               </div>
               
               {/* Get Started Button */}
-              <button className="shrink-0 bg-brand-forest hover:bg-brand-dark text-white px-5 py-3 rounded-[16px] text-[13px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm">
+              <Link href="/register" className="shrink-0 bg-brand-forest hover:bg-brand-dark text-white px-5 py-3 rounded-[16px] text-[13px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm">
                 Get Started <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              </Link>
             </div>
           </div>
         </div>

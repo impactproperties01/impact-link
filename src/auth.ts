@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import prisma from "@/lib/prisma"
 import { cookies } from "next/headers"
 import bcrypt from "bcryptjs"
+import { isRegistrationRole } from '@/lib/roles'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -76,7 +77,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const pendingRole = cookieStore.get('impact_link_pending_role')?.value
 
         // If the user is brand new AND they didn't come from the Sign Up page (no cookie)
-        if (!existingUser && !pendingRole) {
+        if (!existingUser && !isRegistrationRole(pendingRole)) {
           // Abort the creation process and redirect them to the registration page
           return '/register' 
         }
@@ -104,15 +105,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             const cookieStore = await cookies()
             const pendingRole = cookieStore.get('impact_link_pending_role')?.value
             
-            if (pendingRole) {
+            if (isRegistrationRole(pendingRole)) {
               // Update the database synchronously
               await prisma.user.update({
                 where: { email: dbUser.email },
-                data: { role: pendingRole as any }
+                data: { role: pendingRole }
               })
               
               // Update local object so the token gets the new role instantly
-              dbUser.role = pendingRole as any
+              dbUser.role = pendingRole
               
               try { cookieStore.delete('impact_link_pending_role') } catch (e) {}
             }
