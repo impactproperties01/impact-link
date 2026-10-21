@@ -1,9 +1,11 @@
 'use client'
 
 import { Building, Plus, UserPlus, CreditCard, BarChart3, ChevronRight, Calendar, Inbox, Receipt, Tag } from 'lucide-react'
+import { formatDashboardDate } from '@/lib/dashboard-metrics'
+import { formatNaira } from '@/lib/property-display'
 
 export default function OverviewTab({ 
-  property, onOpenModal, expectedRent, rentCollected, outstandingRent, occupiedUnits, vacantUnits, totalUnits, dashOffset, occupiedPercentage, leases, isMultiUnitRent 
+  property, onOpenModal, onAddTenant, onRecordPayment, onShowPayments, payments, paymentYear, expectedRent, rentCollected, outstandingRent, occupiedUnits, vacantUnits, totalUnits, dashOffset, occupiedPercentage, leases, isMultiUnitRent
 }: any) {
   
   return (
@@ -14,10 +16,10 @@ export default function OverviewTab({
           <button onClick={onOpenModal} className="flex items-center gap-1.5 bg-[#005C3A] text-white px-3.5 py-2.5 rounded-[10px] text-[12px] font-bold shrink-0">
             <Plus className="w-4 h-4" /> Manage Units
           </button>
-          <button className="flex items-center gap-1.5 bg-white border border-gray-200 text-[#091F11] px-3.5 py-2.5 rounded-[10px] text-[12px] font-bold shrink-0">
+          <button onClick={onAddTenant} className="flex items-center gap-1.5 bg-white border border-gray-200 text-[#091F11] px-3.5 py-2.5 rounded-[10px] text-[12px] font-bold shrink-0">
             <UserPlus className="w-4 h-4" /> Add Tenant
           </button>
-          <button className="flex items-center gap-1.5 bg-white border border-gray-200 text-[#091F11] px-3.5 py-2.5 rounded-[10px] text-[12px] font-bold shrink-0">
+          <button onClick={onRecordPayment} className="flex items-center gap-1.5 bg-white border border-gray-200 text-[#091F11] px-3.5 py-2.5 rounded-[10px] text-[12px] font-bold shrink-0">
             <CreditCard className="w-4 h-4" /> Record Payment
           </button>
         </div>
@@ -50,18 +52,18 @@ export default function OverviewTab({
         <div className="bg-white p-4 lg:p-6 rounded-2xl lg:rounded-[20px] border border-gray-100 shadow-sm">
           <div className="flex justify-between items-center mb-4 lg:mb-6">
             <h3 className="text-[14px] lg:text-[16px] font-extrabold text-[#091F11] flex items-center gap-1.5">
-              <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5 text-gray-500" /> Rent Summary <span className="text-gray-400 font-medium text-[12px] lg:text-[13px]">(Expected Annual)</span>
+              <BarChart3 className="w-4 h-4 lg:w-5 lg:h-5 text-gray-500" /> Rent Summary <span className="text-gray-400 font-medium text-[12px] lg:text-[13px]">({paymentYear})</span>
             </h3>
             <ChevronRight className="w-4 h-4 lg:w-5 lg:h-5 text-gray-400 cursor-pointer" />
           </div>
           <div className="grid grid-cols-3 gap-2 lg:gap-4">
             <div className="flex flex-col gap-1 lg:gap-2">
               <span className="text-[13px] lg:text-[18px] font-extrabold text-[#091F11]">₦{expectedRent.toLocaleString()}</span>
-              <span className="text-[10px] lg:text-[12px] text-gray-500 font-medium">Total Expected Rent</span>
+              <span className="text-[10px] lg:text-[12px] text-gray-500 font-medium">Listed Rent Per Term</span>
             </div>
             <div className="flex flex-col gap-1 lg:gap-2 border-l border-gray-100 pl-3 lg:pl-6">
               <span className="text-[13px] lg:text-[18px] font-extrabold text-[#005C3A]">₦{rentCollected.toLocaleString()}</span>
-              <span className="text-[10px] lg:text-[12px] text-gray-500 font-medium">Rent Collected</span>
+              <span className="text-[10px] lg:text-[12px] text-gray-500 font-medium">Rent Collected in {paymentYear}</span>
             </div>
             <div className="flex flex-col gap-1 lg:gap-2 border-l border-gray-100 pl-3 lg:pl-6">
               <span className="text-[13px] lg:text-[18px] font-extrabold text-red-500">₦{outstandingRent.toLocaleString()}</span>
@@ -119,12 +121,14 @@ export default function OverviewTab({
         <div className="bg-white p-4 lg:p-6 rounded-2xl lg:rounded-[20px] border border-gray-100 shadow-sm">
           <div className="flex justify-between items-center mb-4 lg:mb-6">
             <h3 className="text-[14px] lg:text-[16px] font-extrabold text-[#091F11] flex items-center gap-1.5">
-              <Receipt className="w-4 h-4 lg:w-5 lg:h-5 text-gray-500" /> Recent Payments
+              <Receipt className="w-4 h-4 lg:w-5 lg:h-5 text-gray-500" /> Recorded Payments
             </h3>
-            <span className="text-[11px] lg:text-[13px] font-bold text-gray-500 flex items-center cursor-pointer hover:text-[#005C3A]">View all <ChevronRight className="w-3 h-3 ml-0.5" /></span>
+            <button onClick={onShowPayments} className="text-[11px] lg:text-[13px] font-bold text-gray-500 flex items-center hover:text-[#005C3A]">View all <ChevronRight className="w-3 h-3 ml-0.5" /></button>
           </div>
-          {leases.length > 0 ? (
-            <div className="space-y-4">{/* Real Payments Here */}</div>
+          {payments.length > 0 ? (
+            <div className="divide-y divide-gray-100">{payments.slice(0, 5).map((payment: { id: string; tenantName: string; amount: number; datePaid: string | null; status: string }) => (
+              <div key={payment.id} className="flex items-center justify-between gap-3 py-3 text-sm"><div><p className="font-bold text-brand-dark">{payment.tenantName}</p><p className="mt-1 text-xs text-gray-500">{payment.datePaid ? formatDashboardDate(payment.datePaid) : payment.status}</p></div><span className="font-bold text-brand-forest">{formatNaira(payment.amount)}</span></div>
+            ))}</div>
           ) : (
             <div className="py-6 flex flex-col items-center justify-center text-center">
                 <p className="text-[13px] lg:text-[14px] font-medium text-gray-400">No recent payments recorded.</p>
@@ -142,10 +146,10 @@ export default function OverviewTab({
           <button onClick={onOpenModal} className="w-full flex items-center justify-center gap-2 bg-[#005C3A] text-white py-3 rounded-xl text-[13px] font-bold hover:bg-[#004b2f] transition-colors">
             <Plus className="w-4 h-4" /> Manage Units
           </button>
-          <button className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-[#091F11] py-3 rounded-xl text-[13px] font-bold hover:bg-gray-50 transition-colors">
+          <button onClick={onAddTenant} className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-[#091F11] py-3 rounded-xl text-[13px] font-bold hover:bg-gray-50 transition-colors">
             <UserPlus className="w-4 h-4" /> Add Tenant
           </button>
-          <button className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-[#091F11] py-3 rounded-xl text-[13px] font-bold hover:bg-gray-50 transition-colors">
+          <button onClick={onRecordPayment} className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-[#091F11] py-3 rounded-xl text-[13px] font-bold hover:bg-gray-50 transition-colors">
             <CreditCard className="w-4 h-4" /> Record Payment
           </button>
         </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useForm, FormProvider, type FieldPath, type FieldErrors, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ChevronLeft } from 'lucide-react'
-import { propertySchema, type PropertyFormData } from './schema'
+import { propertySchema, PROPERTY_DECLARATION, type PropertyFormData } from './schema'
 import { createPropertyAction } from '@/actions/properties'
 
 // Import isolated steps
@@ -18,7 +18,7 @@ import Step5Inspection from './steps/Step5Inspection'
 import { getInspectionContactInput, inspectionContactSchema, type OwnerInspectionContact } from '@/lib/inspection-contact'
 import SuccessScreen from './SuccessScreen'
 
-export default function AddPropertyForm({ ownerContact = null }: { ownerContact?: OwnerInspectionContact }) {
+export default function AddPropertyForm({ ownerContact = null, ownerAddress = null }: { ownerContact?: OwnerInspectionContact; ownerAddress?: string | null }) {
   const [currentStep, setCurrentStep] = useState(1)
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -31,6 +31,13 @@ const methods = useForm<PropertyFormData>({
       propertyType: 'APARTMENT',
       title: '',
       description: '',
+      propertyRelationship: 'DIRECT_OWNER',
+      ownerRelationship: '',
+      directOwnerName: ownerContact?.name || '',
+      directOwnerPhone: ownerContact?.phone || '',
+      directOwnerAddress: ownerAddress || '',
+      features: '',
+      declarationAccepted: false,
       state: 'Lagos',
       locationArea: 'Lekki',
       address: '',
@@ -80,7 +87,7 @@ const methods = useForm<PropertyFormData>({
 
     // --- STEP 1 VALIDATION ---
     if (currentStep === 1) {
-      fieldsToValidate = ['title', 'address']
+      fieldsToValidate = ['listingType', 'propertyType', 'title', 'address', 'propertyRelationship', 'ownerRelationship', 'directOwnerName', 'directOwnerPhone', 'directOwnerAddress']
     }
 
     // --- STEP 2 VALIDATION ---
@@ -102,6 +109,7 @@ const methods = useForm<PropertyFormData>({
         // Fallback for commercial/others
         fieldsToValidate = ['bedrooms', 'bathrooms', 'toilets', 'parkingSpaces']
       }
+      fieldsToValidate.push('features')
     }
 
     // --- STEP 3 VALIDATION ---
@@ -146,7 +154,10 @@ const methods = useForm<PropertyFormData>({
     }
   }
   
-  const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1))
+  const prevStep = () => {
+    methods.setValue('declarationAccepted', false)
+    setCurrentStep((prev) => Math.max(prev - 1, 1))
+  }
 
   const onSubmit = async (data: PropertyFormData) => {
     if (!isPreviewStep || isSubmitting) return
@@ -178,6 +189,9 @@ const methods = useForm<PropertyFormData>({
     const errorKeys = Object.keys(errors)
     if (errorKeys.length > 0) {
       const firstKey = errorKeys[0] as keyof PropertyFormData
+      if (['propertyRelationship', 'ownerRelationship', 'directOwnerName', 'directOwnerPhone', 'directOwnerAddress'].includes(firstKey)) setCurrentStep(1)
+      if (firstKey === 'features') setCurrentStep(2)
+      if (firstKey === 'declarationAccepted') setCurrentStep(STEPS.length)
       if (firstKey.startsWith('inspectionContact')) setCurrentStep(5)
       // This will pop up exactly what is blocking your submission!
       alert(`Submission blocked by hidden rule on "${firstKey}": ${errors[firstKey]?.message}`)
@@ -256,6 +270,16 @@ const methods = useForm<PropertyFormData>({
           {currentStep === 5 && <Step5Inspection ownerContact={ownerContact} />}
           {isSale && currentStep === 6 && <Step5Documents />}
           {isPreviewStep && <Step6Preview imageFiles={imageFiles} ownerContact={ownerContact} />}
+
+          {isPreviewStep && (
+            <div className="mt-6 rounded-2xl border border-gray-200 p-4">
+              <label htmlFor="propertyDeclaration" className="flex items-start gap-3 text-[12px] leading-relaxed text-gray-600 cursor-pointer">
+                <input id="propertyDeclaration" type="checkbox" {...methods.register('declarationAccepted')} required disabled={isSubmitting} aria-invalid={Boolean(methods.formState.errors.declarationAccepted)} aria-describedby={methods.formState.errors.declarationAccepted ? 'propertyDeclarationError' : undefined} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-emerald" />
+                <span>{PROPERTY_DECLARATION}</span>
+              </label>
+              {methods.formState.errors.declarationAccepted && <p id="propertyDeclarationError" role="alert" className="mt-2 text-xs text-red-600">{methods.formState.errors.declarationAccepted.message}</p>}
+            </div>
+          )}
 
           <div className={`flex flex-col gap-3 ${currentStep === 2 ? 'mt-6 px-4 md:px-6' : 'mt-6'}`}>
             {!isPreviewStep ? (

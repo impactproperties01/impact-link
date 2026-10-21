@@ -13,12 +13,21 @@ export function getListingTitle(property: ListingTitleInput) {
     return `${bedrooms} available for rent in ${address}`
   }
   if (property.listingType === 'RENTAL' && property.propertyType === 'LAND') return `Land for rent in ${address}`
+  if (property.listingType === 'LEASE') {
+    const type = property.propertyType === 'HOUSE' ? 'Residential home' : property.propertyType === 'COMMERCIAL' ? 'Commercial building' : 'Land'
+    return `${type} for lease in ${address}`
+  }
   if (property.listingType === 'SALE') {
     const type = property.propertyType === 'HOUSE' ? 'House' : property.propertyType === 'LAND' ? 'Land' : property.propertyType.toLowerCase()
     return `${type} for sale in ${address}`
   }
   if (property.listingType === 'SHORTLET') return `${property.shortletBedrooms || 'Apartment'} available for shortlet in ${address}`
   return `${property.propertyType.toLowerCase()} in ${address}`
+}
+
+export function formatUnitName(name: string) {
+  const value = name.trim()
+  return /^\d+$/.test(value) ? `Room ${value}` : value
 }
 
 export function formatNaira(amount: number) {
@@ -43,6 +52,8 @@ export function getListingPricing(property: ListingPricingInput) {
   const prices = unitPrices.map(([, price]) => price)
   const priceSuffix = property.listingType === 'SHORTLET'
     ? '/ night'
+    : property.listingType === 'LEASE'
+      ? '/ year'
     : property.listingType === 'RENTAL' && property.tenancyDuration
       ? `/ ${property.tenancyDuration.toLowerCase()}`
       : ''

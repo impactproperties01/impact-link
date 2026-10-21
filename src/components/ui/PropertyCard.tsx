@@ -18,7 +18,7 @@ export default function PropertyCard({ property }: PropertyCardProps) {
   const title = getListingTitle(property)
   const isRentalApartment = property.listingType === 'RENTAL' && property.propertyType === 'APARTMENT'
   const { price, hasPriceRange, priceSuffix } = getListingPricing(property)
-  const listingLabel = property.listingType === 'SALE' ? 'For sale' : property.listingType === 'SHORTLET' ? 'Shortlet' : 'For rent'
+  const listingLabel = property.listingType === 'SALE' ? 'For sale' : property.listingType === 'LEASE' ? 'For lease' : property.listingType === 'SHORTLET' ? 'Shortlet' : 'For rent'
   const showRooms = property.propertyType !== 'LAND'
   const hasAttributes = (showRooms && (property.bedrooms > 0 || property.bathrooms > 0)) ||
     (property.size !== null && property.size > 0) ||

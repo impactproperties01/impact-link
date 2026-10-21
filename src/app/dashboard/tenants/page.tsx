@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import prisma from '@/lib/prisma'
 import { auth } from '@/auth'
 import TenantsClient from './TenantsClient'
+import { getListingTitle } from '@/lib/property-display'
+import { serializeTenantUnit } from '@/lib/tenant-management'
 
 export const metadata = { title: 'All Tenants | Impact Link' }
 
@@ -11,17 +13,22 @@ export default async function GlobalTenantsPage() {
 
   if (!userId) redirect('/login')
 
-  // Fetch all occupied units across EVERY property owned by this user
-  const tenants = await prisma.unit.findMany({
-    where: {
-      status: 'OCCUPIED',
-      property: { ownerId: userId }
-    },
-    include: {
-      property: true // Pulls in the property details so we know where the tenant lives
-    },
-    orderBy: { rentEndDate: 'asc' } // Sort by who owes rent soonest
-  })
+  const propertySelect = {
+    id: true, address: true, listingType: true, propertyType: true,
+    bedroomTypes: true, shortletBedrooms: true, tenancyDuration: true,
+  } as const
+  const [units, properties] = await Promise.all([
+    prisma.unit.findMany({
+      where: { property: { ownerId: userId } },
+      select: {
+        id: true, propertyId: true, name: true, type: true, price: true, status: true,
+        tenantId: true, tenantName: true, tenantPhone: true, rentStartDate: true, rentEndDate: true,
+        property: { select: propertySelect },
+      },
+      orderBy: [{ rentEndDate: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }, { id: 'asc' }],
+    }),
+    prisma.property.findMany({ where: { ownerId: userId }, select: propertySelect, orderBy: [{ address: 'asc' }, { id: 'asc' }] }),
+  ])
 
-  return <TenantsClient initialTenants={tenants} />
+  return <TenantsClient units={units.map((unit) => serializeTenantUnit(unit, unit.property))} properties={properties.map((property) => ({ id: property.id, title: getListingTitle(property), address: property.address }))} asOf={new Date().toISOString()} />
 }

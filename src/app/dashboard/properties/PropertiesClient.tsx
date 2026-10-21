@@ -20,8 +20,9 @@ type PropertyData = {
   units: number | null
   occupied: number | null
   vacant: number | null
+  unknownUnits: number
   imagesCount: number
-  image: string
+  image: string | null
 }
 
 export default function PropertiesClient({ initialProperties }: { initialProperties: PropertyData[] }) {
@@ -31,9 +32,10 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
   const tabs = [
     { name: 'All', count: initialProperties.length },
     { name: 'Approved', count: initialProperties.filter(p => p.status === 'Approved').length },
-    { name: 'Pending', count: initialProperties.filter(p => p.status === 'Pending').length },
-    { name: 'Draft', count: initialProperties.filter(p => p.status === 'Draft').length },
+    { name: 'Pending verification', count: initialProperties.filter(p => p.status === 'Pending verification').length },
     { name: 'Rejected', count: initialProperties.filter(p => p.status === 'Rejected').length },
+    { name: 'Sold', count: initialProperties.filter(p => p.status === 'Sold').length },
+    { name: 'Rented', count: initialProperties.filter(p => p.status === 'Rented').length },
   ]
 
   const filteredProperties = initialProperties.filter(prop => {
@@ -125,7 +127,9 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
               
               {/* Left Image Section */}
               <div className="relative w-[110px] shrink-0 rounded-[10px] overflow-hidden">
-                <Image src={prop.image} fill className="object-cover" alt={prop.title} unoptimized />
+                {prop.image ? <Image src={prop.image} fill className="object-cover" alt={prop.title} unoptimized /> : (
+                  <div className="flex h-full min-h-40 items-center justify-center bg-gray-100 p-3 text-center text-xs text-gray-500">No photo provided</div>
+                )}
                 <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] flex items-center gap-1">
                   <Camera className="w-3 h-3" /> {prop.imagesCount}
                 </div>
@@ -142,13 +146,13 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                   <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                     <div className={`px-2 py-0.5 rounded-full flex items-center gap-1 text-[10px] font-bold ${
                       prop.status === 'Approved' ? 'bg-[#E8F5E9] text-[#005C3A]' : 
-                      prop.status === 'Pending' ? 'bg-[#FFFBEB] text-[#D97706]' :
+                      prop.status === 'Pending verification' ? 'bg-[#FFFBEB] text-[#D97706]' :
                       prop.status === 'Rejected' ? 'bg-red-50 text-red-600' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${
                         prop.status === 'Approved' ? 'bg-[#005C3A]' : 
-                        prop.status === 'Pending' ? 'bg-[#F59E0B]' : 
+                        prop.status === 'Pending verification' ? 'bg-[#F59E0B]' :
                         'bg-gray-500'
                       }`}></div>
                       {prop.status}
@@ -188,6 +192,8 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
                     <div className="flex items-center gap-1"><Home className="w-3 h-3 text-gray-400" /> {prop.vacant} Vacant</div>
                   </div>
                 )}
+
+                {prop.unknownUnits > 0 && <p className="mb-3 text-[10px] text-gray-500">{prop.unknownUnits} awaiting occupancy details</p>}
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-1.5 mt-auto">

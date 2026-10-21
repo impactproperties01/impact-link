@@ -7,7 +7,8 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "test:admin": "node --test tests/admin-listings.test.cjs"
+    "test:admin": "node --test tests/admin-listings.test.cjs",
+    "email:check": "node --experimental-strip-types scripts/check-resend.cjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

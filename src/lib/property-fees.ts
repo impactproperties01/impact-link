@@ -8,8 +8,8 @@ export function percentageFee(price: number, percentage: number) {
 // These fees are derived on the server, never accepted from submitted form values.
 export function getListingFeeFields(listingType: string, basePrice: number) {
   return {
-    legalFee: listingType === 'RENTAL' ? percentageFee(basePrice, AGREEMENT_PERCENTAGE) : 0,
-    commissionPct: listingType === 'RENTAL' || listingType === 'SHORTLET' ? PLATFORM_PERCENTAGE : 0,
+    legalFee: listingType === 'RENTAL' || listingType === 'LEASE' ? percentageFee(basePrice, AGREEMENT_PERCENTAGE) : 0,
+    commissionPct: ['RENTAL', 'SHORTLET', 'LEASE'].includes(listingType) ? PLATFORM_PERCENTAGE : 0,
   }
 }
 

@@ -18,9 +18,9 @@ export default function Sidebar({ role }: { role: string }) {
     } else if (role === 'OWNER') {
       baseLinks.push(
         { name: 'My Properties', href: '/dashboard/properties', icon: Home },
-        { name: 'Tenants & Leases', href: '/leases', icon: Users },
+        { name: 'Tenants & Leases', href: '/dashboard/tenants', icon: Users },
         { name: 'Maintenance', href: '/tickets', icon: Wrench },
-        { name: 'Financials', href: '/financials', icon: FileText }
+        { name: 'Financials', href: '/dashboard/payments', icon: FileText }
       )
     } else if (role === 'TENANT') {
       baseLinks.push(

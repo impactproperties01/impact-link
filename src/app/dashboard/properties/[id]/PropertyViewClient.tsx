@@ -5,9 +5,11 @@ import Link from 'next/link'
 import { getListingContactHref } from '@/lib/support'
 import { getPropertyFees } from '@/lib/property-fees'
 import InspectionContact from '@/components/properties/InspectionContact'
+import PropertyRelationshipDetails from '@/components/properties/PropertyRelationshipDetails'
 
 export default function PropertyViewClient({ property }: { property: any }) {
   const isRent = property.listingType === 'RENTAL'
+  const isLease = property.listingType === 'LEASE'
   const isSale = property.listingType === 'SALE'
   const isShortlet = property.listingType === 'SHORTLET'
   const isLand = property.propertyType === 'LAND'
@@ -27,6 +29,9 @@ export default function PropertyViewClient({ property }: { property: any }) {
     displayTitle = `${beds} available for rent in ${addressStr}`
   } else if (isRent && isLand) {
     displayTitle = `Land for rent in ${addressStr}`
+  } else if (isLease) {
+    const type = isHouse ? 'Residential home' : isLand ? 'Land' : 'Commercial building'
+    displayTitle = `${type} for lease in ${addressStr}`
   } else if (isSale) {
     const pType = isHouse ? 'House' : isLand ? 'Land' : property.propertyType.toLowerCase()
     displayTitle = `${pType} for sale in ${addressStr}`
@@ -38,12 +43,13 @@ export default function PropertyViewClient({ property }: { property: any }) {
   }
 
   // Smart Description Routing
-  const descriptionText = isSale ? property.title : property.description
+  const descriptionText = isSale || isLease ? property.title : property.description
   const isValidDescription = descriptionText && !descriptionText.startsWith('Standard') && !descriptionText.startsWith('Please provide')
 
   let priceSuffix = ''
   if (isRent) priceSuffix = `/ ${property.tenancyDuration?.toLowerCase() || 'year'}`
   if (isShortlet) priceSuffix = '/ night'
+  if (isLease) priceSuffix = '/ year'
 
   // Standard Rent Calculations
   const basePrice = Number(property.basePrice) || 0
@@ -174,6 +180,13 @@ export default function PropertyViewClient({ property }: { property: any }) {
                       <span className="text-[11px] lg:text-[13px] font-medium text-gray-500"><b className="text-[#091F11]">{property.availableUnits || 0}</b> Available</span>
                     </div>
                   </>
+                ) : isLease ? (
+                  <>
+                    {isHouse && <span className="text-[11px] text-gray-500">{property.bedrooms || 0} Bedrooms</span>}
+                    <span className="text-[11px] text-gray-500">{property.bathrooms || 0} Bathrooms</span>
+                    <span className="text-[11px] text-gray-500">{property.toilets || 0} Toilets</span>
+                    <span className="text-[11px] text-gray-500">{property.parkingSpaces || 0} Parking spaces</span>
+                  </>
                 ) : isShortlet ? (
                   <>
                     <div className="flex flex-col items-center gap-1.5 flex-1">
@@ -201,6 +214,14 @@ export default function PropertyViewClient({ property }: { property: any }) {
                 <h4 className="font-extrabold text-[#091F11] text-[15px] lg:text-[18px] mb-3">Property Description</h4>
                 <p className="text-[14px] lg:text-[15px] text-gray-600 leading-[1.8] whitespace-pre-wrap">{descriptionText}</p>
               </div>
+            )}
+
+            <PropertyRelationshipDetails {...property} />
+            {property.features && (
+              <section>
+                <h2 className="font-extrabold text-[#091F11] text-[15px] mb-2">Features of Property</h2>
+                <p className="text-[14px] text-gray-600 leading-[1.7] whitespace-pre-wrap break-words">{property.features}</p>
+              </section>
             )}
 
             {/* Verified Documents (Sale Only) */}
@@ -251,12 +272,12 @@ export default function PropertyViewClient({ property }: { property: any }) {
               </div>
 
               {/* Financial Breakdown for Standard Rent */}
-              {isRent && !isMultiUnitRent && (
+              {(isRent || isLease) && !isMultiUnitRent && (
                 <div className="p-4 lg:p-5 bg-[#F8FAFC] border border-gray-100 rounded-[14px] space-y-3 lg:space-y-4">
                   <h4 className="text-[13px] lg:text-[15px] font-extrabold text-[#091F11] mb-1">Financial Breakdown</h4>
                   
                   <div className="flex justify-between items-center text-[13px] lg:text-[14px]">
-                    <span className="text-gray-500">Rent (Base)</span>
+                    <span className="text-gray-500">{isLease ? 'Lease price per year' : 'Rent (Base)'}</span>
                     <span className="font-bold text-[#091F11]">₦{basePrice.toLocaleString()}</span>
                   </div>
 
@@ -340,7 +361,7 @@ export default function PropertyViewClient({ property }: { property: any }) {
               )}
 
               {/* Placeholder Action Button for Desktop (Just a visual anchor if there are no breakdowns) */}
-              {!isRent && (
+              {!isRent && !isLease && (
                 <div className="hidden lg:flex w-full mt-4 p-4 bg-[#F8FAFC] border border-gray-100 rounded-[14px] items-center justify-center text-gray-500 text-[14px] font-medium">
                    Financial details hidden for {property.listingType.toLowerCase()}s.
                 </div>

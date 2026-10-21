@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { registerUser } from '@/actions/auth'
+import { registerUser, prepareOAuthRegistration } from '@/actions/auth'
 import { Mail, Lock, ArrowRight, UserCheck, ChevronLeft, Eye, EyeOff, Send } from 'lucide-react'
 import { signIn } from 'next-auth/react'
 import Link from 'next/link'
@@ -27,11 +27,28 @@ export default function RegisterForm({
   
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [oauthPending, setOAuthPending] = useState(false)
+  const [termsError, setTermsError] = useState('')
 
-const handleOAuthSignUp = (provider: 'google' | 'apple') => {
-    // Now it saves "OWNER" to the cookie, which Prisma accepts!
-    document.cookie = `impact_link_pending_role=${defaultRole}; path=/; max-age=300;`
-    signIn(provider, { callbackUrl: '/dashboard' })
+  const handleOAuthSignUp = async (provider: 'google' | 'apple') => {
+    if (!termsAccepted) {
+      setTermsError('Please accept the Terms and Conditions to continue.')
+      return
+    }
+    setOAuthPending(true)
+    try {
+      const result = await prepareOAuthRegistration(defaultRole, termsAccepted)
+      if (!result.success) {
+        setTermsError(result.error || 'Could not start signup. Please try again.')
+        setOAuthPending(false)
+        return
+      }
+      await signIn(provider, { callbackUrl: '/dashboard' })
+    } catch {
+      setTermsError('Could not start signup. Please try again.')
+      setOAuthPending(false)
+    }
   }
 
   // --- Check Your Email Screen ---
@@ -183,9 +200,17 @@ const handleOAuthSignUp = (provider: 'google' | 'apple') => {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <div className="flex items-start gap-3">
+                  <input id="signupTerms" type="checkbox" name="termsAccepted" value="accepted" checked={termsAccepted} required disabled={isPending || oauthPending} onChange={(event) => { setTermsAccepted(event.target.checked); setTermsError('') }} aria-describedby={termsError ? 'signupTermsError' : undefined} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-forest" />
+                  <label htmlFor="signupTerms" className="text-[12px] leading-relaxed text-gray-600">I have read and accept the <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-forest underline underline-offset-2">Terms and Conditions</Link>.</label>
+                </div>
+                {termsError && <p id="signupTermsError" role="alert" className="text-xs text-red-600">{termsError}</p>}
+              </div>
+
               <button 
                 type="submit" 
-                disabled={isPending}
+                disabled={isPending || oauthPending || !termsAccepted}
                 className="w-full mt-2 bg-brand-forest hover:bg-brand-dark text-white py-3.5 rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
                 {isPending ? 'Creating account...' : 'Sign Up'} 
@@ -219,7 +244,8 @@ const handleOAuthSignUp = (provider: 'google' | 'apple') => {
               <button 
                 type="button"
                 onClick={() => handleOAuthSignUp('google')}
-                className="w-full flex items-center justify-center gap-3 py-3.5 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl transition-colors"
+                disabled={isPending || oauthPending || !termsAccepted}
+                className="w-full flex items-center justify-center gap-3 py-3.5 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Image src="https://authjs.dev/img/providers/google.svg" alt="Google" width={20} height={20} />
                 <span className="text-[13px] font-bold text-brand-dark">Continue with Google</span>
@@ -227,7 +253,8 @@ const handleOAuthSignUp = (provider: 'google' | 'apple') => {
               <button 
                 type="button"
                 onClick={() => handleOAuthSignUp('apple')}
-                className="w-full flex items-center justify-center gap-3 py-3.5 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl transition-colors"
+                disabled={isPending || oauthPending || !termsAccepted}
+                className="w-full flex items-center justify-center gap-3 py-3.5 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Image src="https://authjs.dev/img/providers/apple.svg" alt="Apple" width={20} height={20} className="dark:invert" />
                 <span className="text-[13px] font-bold text-brand-dark">Continue with Apple</span>

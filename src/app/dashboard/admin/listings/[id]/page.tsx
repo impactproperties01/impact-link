@@ -8,6 +8,7 @@ import { formatNaira, getListingTitle } from '@/lib/property-display'
 import ReviewActions from '@/components/admin/ReviewActions'
 import { getPropertyFees } from '@/lib/property-fees'
 import InspectionContact from '@/components/properties/InspectionContact'
+import PropertyRelationshipDetails from '@/components/properties/PropertyRelationshipDetails'
 
 export const metadata = { title: 'Review Listing | Impact Link' }
 
@@ -26,8 +27,9 @@ export default async function ReviewListingPage({ params }: { params: Promise<{ 
 
   const title = getListingTitle(property)
   const isSale = property.listingType === 'SALE'
+  const isLease = property.listingType === 'LEASE'
   const isRentalApartment = property.listingType === 'RENTAL' && property.propertyType === 'APARTMENT'
-  const description = isSale ? [property.title, property.description].filter(Boolean).join('\n\n') : property.description
+  const description = isSale || isLease ? [property.title, property.description].filter(Boolean).join('\n\n') : property.description
   const status = property.status === 'VERIFIED' ? 'Approved' : property.status === 'PENDING' ? 'Pending' : property.status === 'REJECTED' ? 'Rejected' : property.status.toLowerCase()
   const unitPrices = property.unitPrices && typeof property.unitPrices === 'object' && !Array.isArray(property.unitPrices)
     ? Object.entries(property.unitPrices).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1]))
@@ -74,6 +76,13 @@ export default async function ReviewListingPage({ params }: { params: Promise<{ 
             <h3 className="mt-5 text-sm font-bold text-brand-dark">Submitted description</h3>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-600">{description || 'No description was submitted.'}</p>
           </section>
+          <PropertyRelationshipDetails {...property} />
+          {property.features && (
+            <section className="rounded-2xl border border-gray-100 bg-white p-5">
+              <h2 className="text-lg font-bold text-brand-dark">Features of Property</h2>
+              <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600">{property.features}</p>
+            </section>
+          )}
           <section className="rounded-2xl border border-gray-100 bg-white p-5">
             <h2 className="text-lg font-extrabold text-brand-dark">Declared documents</h2>
             <p className="mt-1 text-sm text-gray-500">Document types selected by the owner.</p>
@@ -85,7 +94,7 @@ export default async function ReviewListingPage({ params }: { params: Promise<{ 
           <section className="rounded-2xl border border-gray-100 bg-white p-5">
             <h2 className="text-lg font-extrabold text-brand-dark">Submitted pricing</h2>
             <p className="mt-3 text-2xl font-extrabold text-brand-forest">{formatNaira(property.basePrice)}</p>
-            <p className="mt-1 text-sm text-gray-500">{property.listingType === 'SHORTLET' ? 'Per night' : isSale ? 'Outright price' : `Rent / ${property.tenancyDuration || 'year'}`}</p>
+            <p className="mt-1 text-sm text-gray-500">{property.listingType === 'SHORTLET' ? 'Per night' : isSale ? 'Outright price' : isLease ? 'Price per year' : `Rent / ${property.tenancyDuration || 'year'}`}</p>
             <dl className="mt-3">{unitPrices.map(([type, price]) => <DetailRow key={type} label={type} value={formatNaira(price)} />)}{fees.map(([label, amount]) => amount !== null && <DetailRow key={label} label={label} value={formatNaira(amount)} />)}{property.commissionPct !== null && <DetailRow label={`Platform fee (${property.commissionPct}%)`} value={formatNaira(platformFee)} />}</dl>
           </section>
           <section className="rounded-2xl border border-gray-100 bg-white p-5 space-y-3">

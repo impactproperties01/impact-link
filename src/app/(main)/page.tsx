@@ -82,7 +82,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <div className="absolute bottom-0 left-4 right-4 flex bg-white/90 backdrop-blur-md p-1.5 rounded-full shadow-[0_4px_20px_rgb(0,0,0,0.08)] border border-gray-100 z-20
                           md:static md:bg-white md:shadow-sm md:max-w-lg md:p-2 md:ml-10 md:-mt-2">
             {listingTabs.map((tab) => {
-              const Icon = tab.value === 'rent' ? Home : tab.value === 'buy' ? Building : Bed
+              const Icon = tab.value === 'rent' ? Home : tab.value === 'buy' || tab.value === 'lease' ? Building : Bed
               const active = filters.listing === tab.value
               return (
                 <Link
@@ -119,7 +119,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               ))
             ) : (
               <div className="md:col-span-full">
-                <p className="text-sm text-gray-500">{filters.page > 1 ? 'No more properties on this page.' : 'No verified properties match your search.'}</p><Link href={`/?listing=${filters.listing}`} className="mt-2 inline-block text-sm font-semibold text-brand-forest hover:underline">View all {filters.listing === 'buy' ? 'properties for sale' : filters.listing === 'shortlet' ? 'shortlets' : 'properties for rent'}</Link>
+                <p className="text-sm text-gray-500">{filters.page > 1 ? 'No more properties on this page.' : 'No verified properties match your search.'}</p><Link href={`/?listing=${filters.listing}`} className="mt-2 inline-block text-sm font-semibold text-brand-forest hover:underline">View all {filters.listing === 'buy' ? 'properties for sale' : filters.listing === 'lease' ? 'properties for lease' : filters.listing === 'shortlet' ? 'shortlets' : 'properties for rent'}</Link>
               </div>
             )}
           </div>

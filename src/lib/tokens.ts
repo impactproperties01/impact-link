@@ -6,12 +6,13 @@ export const generateVerificationToken = async (email: string) => {
   // Set expiration to 1 hour from now
   const expires = new Date(new Date().getTime() + 3600 * 1000);
 
-  // Check if a token already exists for this user and delete it so we don't clutter the DB
+  // Reuse a valid link so a failed resend cannot invalidate an email already delivered.
   const existingToken = await prisma.verificationToken.findFirst({
     where: { identifier: email }
   });
 
   if (existingToken) {
+    if (existingToken.expires > new Date()) return existingToken;
     await prisma.verificationToken.delete({
       where: {
         identifier_token: {

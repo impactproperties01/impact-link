@@ -3,6 +3,7 @@
 import { auth } from '@/auth'
 import prisma from '@/lib/prisma'
 import { v2 as cloudinary } from 'cloudinary'
+import { landlordOnboardingSchema } from '@/lib/landlord-onboarding'
 
 // Configure Cloudinary
 cloudinary.config({
@@ -18,10 +19,16 @@ export async function completeLandlordOnboarding(formData: FormData) {
       return { success: false, error: "Unauthorized" }
     }
 
-    const fullName = formData.get('fullName') as string
-    const phone = formData.get('phone') as string
-    // const address = formData.get('address') as string // (If your Prisma schema has an address field, add it below!)
+    const actor = await prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true } })
+    if (actor?.role !== 'OWNER') return { success: false, error: 'Only property owners can complete landlord onboarding.' }
+
+    const validated = landlordOnboardingSchema.safeParse(Object.fromEntries(formData))
+    if (!validated.success) return { success: false, error: validated.error.issues[0]?.message || 'Check your profile details.' }
+    const { fullName, ...profile } = validated.data
     const file = formData.get('profileImage') as File | null
+    if (file && (typeof file === 'string' || (file.size > 0 && (file.size > 5 * 1024 * 1024 || !['image/jpeg', 'image/png'].includes(file.type))))) {
+      return { success: false, error: 'Upload a JPG or PNG profile photo smaller than 5MB.' }
+    }
 
     let imageUrl = session.user.image // Default to existing image if any
 
@@ -46,7 +53,7 @@ export async function completeLandlordOnboarding(formData: FormData) {
       where: { id: session.user.id },
       data: {
         name: fullName,
-        phone: phone,
+        ...profile,
         image: imageUrl as string | undefined,
         isVerified: true, // KYC Complete!
       }

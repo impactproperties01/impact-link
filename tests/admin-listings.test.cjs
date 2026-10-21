@@ -135,7 +135,7 @@ test('rejected listing contact uses the supplied support email and listing refer
   const { getListingContactHref } = loadSource('src/lib/support.ts')
   const url = new URL(getListingContactHref(propertyId))
   assert.equal(url.protocol, 'mailto:')
-  assert.equal(url.pathname, 'imapctproperties01@gmail.com')
+  assert.equal(url.pathname, 'contact@theimpactproperties.com')
   assert.ok(url.searchParams.get('subject').includes(propertyId))
 })
 
@@ -166,6 +166,7 @@ function screenFixture({ status = 'PENDING', denied = false, missing = false, pr
     '@/lib/property-fees': loadSource('src/lib/property-fees.ts'),
     '@/lib/inspection-contact': loadSource('src/lib/inspection-contact.ts'),
     '@/components/properties/InspectionContact': { __esModule: true, default: loadSource('src/components/properties/InspectionContact.tsx').default },
+    '@/components/properties/PropertyRelationshipDetails': { __esModule: true, default: loadSource('src/components/properties/PropertyRelationshipDetails.tsx').default },
     '@/components/admin/ReviewActions': { __esModule: true, default: () => React.createElement('button', null, 'Review controls') },
     'next/navigation': { notFound: () => { throw Object.assign(new Error('Not found'), { status: 404 }) } },
     'next/link': { __esModule: true, default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
@@ -233,6 +234,9 @@ function creationFixture() {
   const create = async (overrides = {}) => {
     const data = {
       listingType: 'RENTAL', propertyType: 'LAND', title: 'Test listing', description: '',
+      declarationAccepted: true,
+      propertyRelationship: 'DIRECT_OWNER', directOwnerName: 'Test Owner', directOwnerPhone: '08012345678',
+      directOwnerAddress: '20 Owner Street, Lagos', features: 'Good road access',
       state: 'Lagos', locationArea: 'Lekki', address: '12 Test Road, Lagos', basePrice: 1000000,
       bedrooms: 0, bathrooms: 0, documents: [], bedroomTypes: [], legalFee: 0, commissionPct: 0,
       ...overrides,
@@ -255,6 +259,37 @@ test('property creation persists agreement amount and platform percentage despit
   assert.equal(saved.status, 'PENDING')
 })
 
+test('all listing types save direct owner details and free-text features independently of the submitting account', async () => {
+  for (const listingType of ['RENTAL', 'SALE', 'SHORTLET', 'LEASE']) {
+    const saved = await creationFixture().create({
+      listingType, size: 600, propertyRelationship: 'OTHER', ownerRelationship: '  Property manager  ',
+      directOwnerName: '  Ada Okafor  ', directOwnerPhone: '+234 802 345 6789',
+      directOwnerAddress: '  25 Owner Avenue, Lagos  ', features: '  Borehole water\nGated access and paved roads  ',
+    })
+    assert.equal(saved.ownerId, 'owner-1')
+    assert.equal(saved.propertyRelationship, 'OTHER')
+    assert.equal(saved.ownerRelationship, 'Property manager')
+    assert.equal(saved.directOwnerName, 'Ada Okafor')
+    assert.equal(saved.directOwnerPhone, '+234 802 345 6789')
+    assert.equal(saved.directOwnerAddress, '25 Owner Avenue, Lagos')
+    assert.equal(saved.features, 'Borehole water\nGated access and paved roads')
+    assert.ok(saved.declarationAcceptedAt instanceof Date)
+    assert.match(saved.declarationText, /and every other information supplied is true\/correct\.$/)
+    assert.equal(Object.hasOwn(saved, 'declarationAccepted'), false)
+  }
+})
+
+test('admin review includes the declared relationship, direct owner details and features', async () => {
+  const { renderToStaticMarkup } = require('react-dom/server')
+  const screen = screenFixture({ propertyOverrides: {
+    propertyRelationship: 'OTHER', ownerRelationship: 'Family representative',
+    directOwnerName: 'Ada Okafor', directOwnerPhone: '+2348023456789',
+    directOwnerAddress: '25 Owner Avenue, Lagos', features: 'Borehole water\nGated access',
+  } })
+  const text = renderToStaticMarkup(await screen.detail({ params: Promise.resolve({ id: propertyId }) })).replace(/<[^>]*>/g, '')
+  for (const value of ['Family representative', 'Ada Okafor', '+2348023456789', '25 Owner Avenue, Lagos', 'Borehole water\nGated access']) assert.ok(text.includes(value))
+})
+
 test('submitted fee overrides cannot change the server-calculated 20 percent charges', async () => {
   const saved = await creationFixture().create({ legalFee: 1, commissionPct: 99 })
   assert.equal(saved.legalFee, 200000)
@@ -267,6 +302,41 @@ test('shortlets persist a platform fee rate without a rental agreement charge', 
   assert.equal(saved.commissionPct, 20)
   const { getPropertyFees } = loadSource('src/lib/property-fees.ts')
   assert.equal(getPropertyFees(saved).platformFee, 10000)
+})
+
+test('lease creation saves yearly pricing and server-calculated agreement and platform fees for each property type', async () => {
+  for (const propertyType of ['HOUSE', 'COMMERCIAL', 'LAND']) {
+    const saved = await creationFixture().create({
+      listingType: 'LEASE', propertyType, size: 600, title: 'Property available for a long-term lease',
+      tenancyDuration: '6 months', basePrice: 2000000, legalFee: 1, commissionPct: 99,
+      bedroomTypes: ['2-bedroom Flat'], unitPrices: { '2-bedroom Flat': 500000 },
+      totalUnits: 3, availableUnits: 1, installmentalPrice: 3000000,
+    })
+    assert.equal(saved.listingType, 'LEASE')
+    assert.equal(saved.propertyType, propertyType)
+    assert.equal(saved.tenancyDuration, '1 year')
+    assert.equal(saved.legalFee, 400000)
+    assert.equal(saved.commissionPct, 20)
+    assert.equal(saved.status, 'PENDING')
+    assert.deepEqual(saved.bedroomTypes, [])
+    assert.deepEqual(saved.unitPrices, {})
+    assert.equal(saved.totalUnits, undefined)
+    assert.equal(saved.installmentalPrice, undefined)
+  }
+})
+
+test('admin review shows lease description and yearly fees', async () => {
+  const { renderToStaticMarkup } = require('react-dom/server')
+  const screen = screenFixture({ propertyOverrides: {
+    listingType: 'LEASE', propertyType: 'COMMERCIAL', title: 'Office building with private parking',
+    description: '', basePrice: 2000000, legalFee: 400000, commissionPct: 20,
+  } })
+  const text = renderToStaticMarkup(await screen.detail({ params: Promise.resolve({ id: propertyId }) })).replace(/<[^>]*>/g, '')
+  assert.match(text, /Commercial building for lease/)
+  assert.match(text, /Office building with private parking/)
+  assert.match(text, /Price per year/)
+  assert.match(text, /Agreement fee₦400,000/)
+  assert.match(text, /Platform fee \(20%\)₦400,000/)
 })
 
 test('sale listings do not inherit rental fees when the listing type changes', async () => {

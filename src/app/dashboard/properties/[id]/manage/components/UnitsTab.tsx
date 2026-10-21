@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Plus, Search, MoreHorizontal, UserPlus, CheckCircle2, DoorOpen, X, Edit } from 'lucide-react'
 import { createPropertyUnitAction, updatePropertyUnitAction } from '@/actions/properties'
+import { formatUnitName } from '@/lib/property-display'
 
 export default function UnitsTab({ property }: { property: any }) {
   const units = property.units || []
@@ -292,7 +293,7 @@ export default function UnitsTab({ property }: { property: any }) {
               {units.map((unit: any) => (
                 <tr key={unit.id} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="py-3 lg:py-4 px-4 lg:px-6">
-                    <div className="font-extrabold text-[#091F11] text-[13px] lg:text-[14px]">{unit.name}</div>
+                    <div className="font-extrabold text-[#091F11] text-[13px] lg:text-[14px]">{formatUnitName(unit.name)}</div>
                     <div className="text-[11px] text-gray-500 lg:hidden mt-0.5">{unit.type}</div>
                   </td>
                   <td className="py-3 lg:py-4 px-4 lg:px-6 hidden lg:table-cell">

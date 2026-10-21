@@ -49,11 +49,24 @@ async function renderHome(params = {}, rowCount = 0) {
 }
 
 test('Rent, Buy and Shortlet always query their own verified listing category', () => {
-  for (const [listing, listingType] of [['rent', 'RENTAL'], ['buy', 'SALE'], ['shortlet', 'SHORTLET']]) {
+  for (const [listing, listingType] of [['rent', 'RENTAL'], ['buy', 'SALE'], ['shortlet', 'SHORTLET'], ['lease', 'LEASE']]) {
     const filters = parse({ listing, status: 'PENDING' })
     assert.deepEqual(query(filters).where, { status: 'VERIFIED', listingType })
   }
   assert.equal(parse({}).listing, 'rent')
+})
+
+test('lease marketplace preserves yearly price and property filters and exposes the Lease tab', async () => {
+  const filters = parse({ listing: 'lease', propertyType: 'COMMERCIAL', minPrice: '1000000', duration: '6 months' })
+  assert.equal(filters.duration, '')
+  assert.equal(query(filters).where.listingType, 'LEASE')
+  assert.equal(query(filters).where.propertyType, 'COMMERCIAL')
+  assert.deepEqual(query(filters).where.basePrice, { gte: 1000000, lte: undefined })
+  assert.match(href(filters, { page: 2 }), /listing=lease/)
+  const { html } = await renderHome({ listing: 'lease' })
+  assert.match(html, /Properties for lease/)
+  assert.match(html, /View all properties for lease/)
+  assert.match(html, /per year/)
 })
 
 test('untrusted or repeated filter values cannot override status, enums, or query limits', () => {

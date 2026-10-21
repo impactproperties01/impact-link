@@ -3,7 +3,7 @@
 import prisma from '@/lib/prisma'
 import { auth } from '@/auth'
 import { v2 as cloudinary } from 'cloudinary'
-import { propertySchema } from '@/components/properties/schema'
+import { propertySchema, PROPERTY_DECLARATION } from '@/components/properties/schema'
 import { revalidatePath } from 'next/cache'
 import { getListingFeeFields } from '@/lib/property-fees'
 import { getInspectionContactInput, inspectionContactSchema } from '@/lib/inspection-contact'
@@ -14,6 +14,15 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 })
+
+function refreshPropertyViews(propertyId: string) {
+  revalidatePath('/dashboard')
+  revalidatePath('/dashboard/properties')
+  revalidatePath('/dashboard/tenants')
+  revalidatePath('/dashboard/payments')
+  revalidatePath(`/dashboard/properties/${propertyId}`)
+  revalidatePath(`/dashboard/properties/${propertyId}/manage`)
+}
 
 export async function createPropertyAction(formData: FormData) {
   try {
@@ -72,6 +81,7 @@ export async function createPropertyAction(formData: FormData) {
       toilets, 
       parkingSpaces, 
       unitPrices, // <-- Extract unitPrices here
+      declarationAccepted,
       ...restData 
     } = propertyData
 
@@ -79,6 +89,8 @@ export async function createPropertyAction(formData: FormData) {
       data: {
         ...restData,
         ...getListingFeeFields(propertyData.listingType, propertyData.basePrice),
+        declarationAcceptedAt: declarationAccepted ? new Date() : null,
+        declarationText: PROPERTY_DECLARATION,
         inspectionContactName: inspectionContact.data.name,
         inspectionContactPhone: inspectionContact.data.phone,
         title: title || "",             
@@ -94,6 +106,7 @@ export async function createPropertyAction(formData: FormData) {
       }
     })
 
+    refreshPropertyViews(newProperty.id)
     return { success: true, propertyId: newProperty.id }
 
   } catch (error) {
@@ -126,7 +139,7 @@ export async function updatePropertyUnitsAction(
     })
 
     // Forces Next.js to pull fresh data for this specific property page
-    revalidatePath(`/dashboard/properties/${propertyId}/manage`)
+    refreshPropertyViews(propertyId)
     return { success: true }
   } catch (error) {
     console.error("Failed to update units:", error)
@@ -177,7 +190,7 @@ export async function createPropertyUnitAction(
       }
     })
 
-    revalidatePath(`/dashboard/properties/${propertyId}/manage`)
+    refreshPropertyViews(propertyId)
     return { success: true }
   } catch (error) {
     console.error("Failed to create unit:", error)
@@ -228,57 +241,10 @@ export async function updatePropertyUnitAction(
       }
     })
 
-    revalidatePath(`/dashboard/properties/${propertyId}/manage`)
+    refreshPropertyViews(propertyId)
     return { success: true }
   } catch (error) {
     console.error("Failed to update unit:", error)
     return { success: false, error: "Something went wrong updating the unit." }
-  }
-}
-
-// NEW: Action to record payment and extend tenant lease
-export async function recordTenantPaymentAction(unitId: string, propertyId: string) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" }
-    }
-
-    const property = await prisma.property.findUnique({
-      where: { id: propertyId, ownerId: session.user.id },
-      include: { units: { where: { id: unitId } } }
-    })
-
-    if (!property || property.units.length === 0) {
-      return { success: false, error: "Property or Unit not found." }
-    }
-
-    const unit = property.units[0]
-    
-    // Determine extension duration based on property settings
-    let extensionMonths = 12 // Default to 1 year
-    const durationStr = (property.tenancyDuration || '').toLowerCase()
-    
-    if (durationStr === 'monthly' || durationStr === 'month') {
-        extensionMonths = 1
-    } else if (durationStr.includes('6') || durationStr.includes('bi')) {
-        extensionMonths = 6
-    }
-
-    // Calculate new end date (starting from current end date, or today if missing)
-    const currentEndDate = unit.rentEndDate ? new Date(unit.rentEndDate) : new Date()
-    const newEndDate = new Date(currentEndDate)
-    newEndDate.setMonth(newEndDate.getMonth() + extensionMonths)
-
-    await prisma.unit.update({
-      where: { id: unitId },
-      data: { rentEndDate: newEndDate }
-    })
-
-    revalidatePath(`/dashboard/properties/${propertyId}/manage`)
-    return { success: true }
-  } catch (error) {
-    console.error("Failed to record payment:", error)
-    return { success: false, error: "Something went wrong extending the lease." }
   }
 }

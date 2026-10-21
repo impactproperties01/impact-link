@@ -8,14 +8,16 @@ import OverviewTab from './components/OverviewTab'
 import UnitsTab from './components/UnitsTab'
 import TenantsTab from './components/TenantsTab'
 import PaymentsTab from './components/PaymentsTab'
+import type { getOwnerPayments } from '@/lib/dashboard-data'
+import { getPropertyOccupancy } from '@/lib/dashboard-metrics'
 
 const BEDROOM_TYPE_OPTIONS = [
   'Single room', 'Room self contained', 'Room and Parlor Flat', 
   '2-bedroom Flat', '3-bedroom Flat', '4-Bedroom Flat'
 ]
 
-export default function ManagePropertyClient({ property }: { property: any }) {
-  const [activeTab, setActiveTab] = useState('Overview')
+export default function ManagePropertyClient({ property, paymentData, asOf, initialTab = 'Overview' }: { property: any; paymentData: Awaited<ReturnType<typeof getOwnerPayments>>; asOf: string; initialTab?: string }) {
+  const [activeTab, setActiveTab] = useState(initialTab)
   
   // Modal State
   const [showUnitModal, setShowUnitModal] = useState(false)
@@ -26,6 +28,7 @@ export default function ManagePropertyClient({ property }: { property: any }) {
 
   // Routing Logic
   const isRent = property.listingType === 'RENTAL'
+  const isLease = property.listingType === 'LEASE'
   const isSale = property.listingType === 'SALE'
   const isShortlet = property.listingType === 'SHORTLET'
   const isLand = property.propertyType === 'LAND'
@@ -43,6 +46,9 @@ export default function ManagePropertyClient({ property }: { property: any }) {
     displayTitle = `${beds} available for rent in ${addressStr}`
   } else if (isRent && isLand) {
     displayTitle = `Land for rent in ${addressStr}`
+  } else if (isLease) {
+    const type = isHouse ? 'Residential home' : isLand ? 'Land' : 'Commercial building'
+    displayTitle = `${type} for lease in ${addressStr}`
   } else if (isSale) {
     const pType = isHouse ? 'House' : isLand ? 'Land' : property.propertyType.toLowerCase()
     displayTitle = `${pType} for sale in ${addressStr}`
@@ -55,17 +61,18 @@ export default function ManagePropertyClient({ property }: { property: any }) {
 
   // Real Database Metrics
   const images = property.images && property.images.length > 0 ? property.images : ['/hero-image.png']
-  const totalUnits = property.totalUnits || 0
-  const vacantUnits = property.availableUnits || 0
-  const occupiedUnits = Math.max(0, totalUnits - vacantUnits)
+  const occupancy = getPropertyOccupancy(property)
+  const totalUnits = occupancy.total
+  const vacantUnits = occupancy.vacant
+  const occupiedUnits = occupancy.occupied
   const basePrice = Number(property.basePrice) || 0
   
   const occupiedPercentage = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0
   const dashOffset = 226 - (226 * occupiedPercentage) / 100
 
   const expectedRent = basePrice * (totalUnits > 0 ? totalUnits : 1)
-  const rentCollected = 0 
-  const outstandingRent = expectedRent - rentCollected
+  const rentCollected = paymentData.summary.rentCollected
+  const outstandingRent = paymentData.summary.outstanding
   const leases = property.leases || [] 
 
   const tabs = ['Overview', 'Units', 'Tenants', 'Payments', 'Documents']
@@ -247,6 +254,11 @@ export default function ManagePropertyClient({ property }: { property: any }) {
           <OverviewTab 
             property={property} 
             onOpenModal={handleOpenModal}
+            onAddTenant={() => setActiveTab('Tenants')}
+            onRecordPayment={() => setActiveTab('Tenants')}
+            onShowPayments={() => setActiveTab('Payments')}
+            payments={paymentData.payments}
+            paymentYear={paymentData.summary.year}
             expectedRent={expectedRent}
             rentCollected={rentCollected}
             outstandingRent={outstandingRent}
@@ -267,11 +279,11 @@ export default function ManagePropertyClient({ property }: { property: any }) {
         )}
         
         {activeTab === 'Tenants' && (
-          <TenantsTab property={property} />
+          <TenantsTab property={property} asOf={asOf} onManageUnits={() => setActiveTab('Units')} />
         )}
         
         {activeTab === 'Payments' && (
-          <PaymentsTab property={property} />
+          <PaymentsTab data={paymentData} propertyId={property.id} />
         )}
         
       </div>

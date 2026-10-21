@@ -28,7 +28,7 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 function PriceBreakdown({ property, price, label }: { property: PricingFields; price: number; label: string }) {
   const { agreementFee, platformFee, platformPct } = getPropertyFees(property, price)
   const fees: [string, number][] = []
-  if (property.listingType === 'RENTAL' && property.legalFee !== null) fees.push(['Agreement fee', agreementFee])
+  if ((property.listingType === 'RENTAL' || property.listingType === 'LEASE') && property.legalFee !== null) fees.push(['Agreement fee', agreementFee])
   if (property.listingType !== 'SALE' && property.commissionPct !== null) fees.push([`Platform fee (${platformPct}%)`, platformFee])
   for (const [name, amount] of [
     ['Caution fee', property.cautionFee],
@@ -54,7 +54,7 @@ export default async function PropertyDetailsPage({ params }: { params: Promise<
   const property = await prisma.property.findFirst({
     where: { id, status: 'VERIFIED' },
     select: {
-      id: true, title: true, description: true, address: true,
+      id: true, title: true, description: true, address: true, features: true,
       listingType: true, propertyType: true, status: true, images: true,
       bedrooms: true, bathrooms: true, toilets: true, parkingSpaces: true, size: true,
       bedroomTypes: true, totalUnits: true, availableUnits: true, shortletBedrooms: true,
@@ -68,11 +68,12 @@ export default async function PropertyDetailsPage({ params }: { params: Promise<
   const { price, priceSuffix, hasPriceRange, unitPrices } = getListingPricing(property)
   const isRentalApartment = property.listingType === 'RENTAL' && property.propertyType === 'APARTMENT'
   const isSale = property.listingType === 'SALE'
+  const isLease = property.listingType === 'LEASE'
   const showRooms = property.propertyType !== 'LAND'
-  const category = isSale ? 'buy' : property.listingType === 'SHORTLET' ? 'shortlet' : 'rent'
-  const listingLabel = isSale ? 'For sale' : property.listingType === 'SHORTLET' ? 'Shortlet' : 'For rent'
-  const priceLabel = isSale ? 'Outright price' : property.listingType === 'SHORTLET' ? 'Price per night' : 'Rent'
-  const description = [...new Set([...(isSale ? [property.title] : []), property.description].map((text) => text.trim()).filter(Boolean))].join('\n\n')
+  const category = isSale ? 'buy' : isLease ? 'lease' : property.listingType === 'SHORTLET' ? 'shortlet' : 'rent'
+  const listingLabel = isSale ? 'For sale' : isLease ? 'For lease' : property.listingType === 'SHORTLET' ? 'Shortlet' : 'For rent'
+  const priceLabel = isSale ? 'Outright price' : isLease ? 'Price per year' : property.listingType === 'SHORTLET' ? 'Price per night' : 'Rent'
+  const description = [...new Set([...((isSale || isLease) ? [property.title] : []), property.description].map((text) => text.trim()).filter(Boolean))].join('\n\n')
 
   return (
     <div className="space-y-6 px-4 py-6 pb-28 md:px-8 md:py-10">
@@ -108,6 +109,12 @@ export default async function PropertyDetailsPage({ params }: { params: Promise<
             <h2 className="text-lg font-bold text-brand-dark">About this property</h2>
             <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600">{description || 'No description provided.'}</p>
           </section>
+          {property.features && (
+            <section className="rounded-2xl border border-gray-100 bg-white p-5">
+              <h2 className="text-lg font-bold text-brand-dark">Features of Property</h2>
+              <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600">{property.features}</p>
+            </section>
+          )}
           <section className="rounded-2xl border border-gray-100 bg-white p-5">
             <h2 className="text-lg font-bold text-brand-dark">Property details</h2>
             <dl className="mt-2">

@@ -1,0 +1,1 @@
+ALTER TYPE "ListingType" ADD VALUE 'LEASE';

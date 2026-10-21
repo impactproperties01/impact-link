@@ -24,7 +24,7 @@ export default function MarketplaceSearch({ filters }: { filters: MarketplaceFil
         <details name="marketplace-filters">
           <summary className={summaryClass}><Tag className="h-4 w-4 text-gray-500" aria-hidden="true" />Price{filters.minPrice !== undefined || filters.maxPrice !== undefined ? ' •' : ''}<ChevronDown className="h-3 w-3" aria-hidden="true" /></summary>
           <div className={panelClass}>
-            <p className="text-xs text-gray-500">Starting price in naira{filters.listing === 'shortlet' ? ' per night' : ''}</p>
+            <p className="text-xs text-gray-500">Starting price in naira{filters.listing === 'shortlet' ? ' per night' : filters.listing === 'lease' ? ' per year' : ''}</p>
             <label className="block space-y-1 text-sm font-medium">Minimum price<input type="number" name="minPrice" min="0" max="1000000000000" step="any" defaultValue={filters.minPrice ?? ''} placeholder="No minimum" className={fieldClass} /></label>
             <label className="block space-y-1 text-sm font-medium">Maximum price<input type="number" name="maxPrice" min="0" max="1000000000000" step="any" defaultValue={filters.maxPrice ?? ''} placeholder="No maximum" className={fieldClass} /></label>
             <ApplyButton />

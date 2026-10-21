@@ -1,11 +1,11 @@
-export const SUPPORT_EMAIL = 'imapctproperties01@gmail.com'
+export const SUPPORT_EMAIL = 'contact@theimpactproperties.com'
 
 export function getListingContactHref(propertyId: string) {
   return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Listing enquiry: ${propertyId}`)}`
 }
 
-export const SUPPORT_PHONE = '09015417805'
-export const SUPPORT_PHONE_HREF = 'tel:+2349015417805'
+export const SUPPORT_PHONE = '07083804443'
+export const SUPPORT_PHONE_HREF = 'tel:+2347083804443'
 
 export function getInspectionEmailHref(propertyId: string, title: string) {
   const subject = `Schedule an inspection: ${propertyId}`

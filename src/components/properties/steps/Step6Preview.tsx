@@ -4,6 +4,7 @@ import { useFormContext } from 'react-hook-form'
 import { Eye, Check, ChevronLeft, ChevronRight, MapPin, Bed, Bath, CheckCircle2, Home, Maximize, Hash, FileText } from 'lucide-react'
 import type { PropertyFormData } from '../schema'
 import InspectionContact from '../InspectionContact'
+import PropertyRelationshipDetails from '../PropertyRelationshipDetails'
 import { getInspectionContactInput, type OwnerInspectionContact } from '@/lib/inspection-contact'
 
 interface Step6PreviewProps {
@@ -18,6 +19,7 @@ export default function Step6Preview({ imageFiles, ownerContact = null }: Step6P
 
   // Determine categories
   const isRent = formValues.listingType === 'RENTAL'
+  const isLease = formValues.listingType === 'LEASE'
   const isSale = formValues.listingType === 'SALE'
   const isShortlet = formValues.listingType === 'SHORTLET'
   const isLand = formValues.propertyType === 'LAND'
@@ -39,6 +41,9 @@ export default function Step6Preview({ imageFiles, ownerContact = null }: Step6P
     displayTitle = `${beds} available for rent in ${addressStr}`
   } else if (isRent && isLand) {
     displayTitle = `Land for rent in ${addressStr}`
+  } else if (isLease) {
+    const type = isHouse ? 'Residential home' : isLand ? 'Land' : 'Commercial building'
+    displayTitle = `${type} for lease in ${addressStr}`
   } else if (isSale) {
     const pType = isHouse ? 'House' : isLand ? 'Land' : formValues.propertyType.toLowerCase()
     displayTitle = `${pType} for sale in ${addressStr}`
@@ -50,13 +55,14 @@ export default function Step6Preview({ imageFiles, ownerContact = null }: Step6P
   }
 
   // Smart Description Routing
-  const descriptionText = isSale ? formValues.title : formValues.description
+  const descriptionText = isSale || isLease ? formValues.title : formValues.description
   const isValidDescription = descriptionText && !descriptionText.startsWith('Standard') && !descriptionText.startsWith('Please provide')
 
   // Format Price & Suffix
   let priceSuffix = ''
   if (isRent) priceSuffix = `/ ${formValues.tenancyDuration?.toLowerCase() || 'year'}`
   if (isShortlet) priceSuffix = '/ night'
+  if (isLease) priceSuffix = '/ year'
 
   // Standard Rent Calculations for preview (matching Step 3 logic)
   const basePrice = Number(formValues.basePrice) || 0
@@ -120,11 +126,11 @@ export default function Step6Preview({ imageFiles, ownerContact = null }: Step6P
           </div>
 
           {/* PREVIEW: Financial Breakdown for Single Unit Rent */}
-          {isRent && !isMultiUnitRent && (
+          {(isRent || isLease) && !isMultiUnitRent && (
             <div className="mt-5 p-4 bg-[#F8FAFC] border border-gray-100 rounded-[14px] space-y-3">
               <h4 className="text-[13px] font-extrabold text-[#091F11] mb-1">Financial Breakdown</h4>
               <div className="flex justify-between items-center text-[13px]">
-                <span className="text-gray-500">Rent (Base)</span>
+                <span className="text-gray-500">{isLease ? 'Lease price per year' : 'Rent (Base)'}</span>
                 <span className="font-bold text-[#091F11]">₦{basePrice.toLocaleString()}</span>
               </div>
               {cautionFee > 0 && (
@@ -209,6 +215,13 @@ export default function Step6Preview({ imageFiles, ownerContact = null }: Step6P
                   <span className="text-[11px] font-medium text-gray-500"><b className="text-[#091F11]">{formValues.availableUnits || 0}</b> Available</span>
                 </div>
               </>
+            ) : isLease ? (
+              <>
+                {isHouse && <span className="text-[11px] text-gray-500">{formValues.bedrooms || 0} Bedrooms</span>}
+                <span className="text-[11px] text-gray-500">{formValues.bathrooms || 0} Bathrooms</span>
+                <span className="text-[11px] text-gray-500">{formValues.toilets || 0} Toilets</span>
+                <span className="text-[11px] text-gray-500">{formValues.parkingSpaces || 0} Parking spaces</span>
+              </>
             ) : isShortlet ? (
               <>
                 <div className="flex flex-col items-center gap-1.5 flex-1">
@@ -229,6 +242,14 @@ export default function Step6Preview({ imageFiles, ownerContact = null }: Step6P
         )}
 
         <InspectionContact name={inspectionContact.name} phone={inspectionContact.phone} />
+        <PropertyRelationshipDetails {...formValues} />
+
+        {formValues.features && (
+          <section>
+            <h4 className="font-extrabold text-[#091F11] text-[15px] mb-2">Features of Property</h4>
+            <p className="text-[14px] text-gray-600 leading-[1.7] whitespace-pre-wrap break-words">{formValues.features}</p>
+          </section>
+        )}
 
         {/* Description */}
         {isValidDescription && (

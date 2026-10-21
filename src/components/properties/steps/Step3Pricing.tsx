@@ -11,6 +11,7 @@ export default function Step3Pricing() {
 
   // Determine active conditions based on Step 1 & 2
   const isRent = formValues.listingType === 'RENTAL'
+  const isLease = formValues.listingType === 'LEASE'
   const isSale = formValues.listingType === 'SALE'
   const isShortlet = formValues.listingType === 'SHORTLET'
   const isApartment = formValues.propertyType === 'APARTMENT'
@@ -29,6 +30,10 @@ export default function Step3Pricing() {
 
   // Auto-sync lowest unit price to basePrice so the Database doesn't crash
   const unitPrices = formValues.unitPrices || {}
+
+  useEffect(() => {
+    if (isLease) setValue('tenancyDuration', '1 year')
+  }, [isLease, setValue])
   
   useEffect(() => {
     if (isMultiUnitRent && unitPrices) {
@@ -109,10 +114,10 @@ export default function Step3Pricing() {
       )}
 
       {/* 1B. STANDARD RENT (Land or Properties without specific sub-types) */}
-      {isRent && !isMultiUnitRent && (
+      {(isRent || isLease) && !isMultiUnitRent && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <div className={`grid ${isLease ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
+            {!isLease && <div>
               <label className="block text-[13px] font-bold text-[#091F11] mb-2">Tenancy</label>
               <div className="relative">
                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
@@ -121,9 +126,9 @@ export default function Step3Pricing() {
                   <option value="6 months">6 Months</option>
                 </select>
               </div>
-            </div>
+            </div>}
             <div>
-              <label className="block text-[13px] font-bold text-[#091F11] mb-2">Price (₦)</label>
+              <label className="block text-[13px] font-bold text-[#091F11] mb-2">{isLease ? 'Price per year (₦)' : 'Price (₦)'}</label>
               <div className="relative">
                 <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
                 <input type="number" {...register('basePrice', { valueAsNumber: true })} placeholder="0" className="w-full pl-11 pr-4 py-3.5 bg-white border-[1.5px] border-gray-200 rounded-xl text-[14px] outline-none font-bold text-[#091F11] focus:border-[#005C3A]" />
@@ -148,7 +153,7 @@ export default function Step3Pricing() {
             <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Cost Breakdown</h4>
             
             <div className="flex justify-between items-center text-[14px]">
-              <span className="text-gray-500">Rent</span>
+              <span className="text-gray-500">{isLease ? 'Lease price per year' : 'Rent'}</span>
               <span className="font-bold text-[#091F11]">₦{basePrice.toLocaleString()}</span>
             </div>
             

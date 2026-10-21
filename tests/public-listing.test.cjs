@@ -34,6 +34,8 @@ const listing = {
   serviceCharge: null, cautionFee: 5000, legalFee: 20000, agencyFee: null, commissionPct: 20,
   ownerId: 'private-owner', owner: { email: 'private@example.invalid' }, documents: ['PRIVATE_DOCUMENT'],
   units: [{ tenantName: 'PRIVATE_TENANT' }], state: 'PRIVATE_STATE', latitude: 6.5, longitude: 3.5,
+  propertyRelationship: 'OTHER', ownerRelationship: 'PRIVATE_RELATIONSHIP', directOwnerName: 'PRIVATE_OWNER_NAME',
+  directOwnerPhone: 'PRIVATE_OWNER_PHONE', directOwnerAddress: 'PRIVATE_OWNER_ADDRESS', features: null,
 }
 function fixture(overrides = {}, missing = false) {
   let current = { ...listing, ...overrides }
@@ -59,6 +61,22 @@ function fixture(overrides = {}, missing = false) {
 }
 function textOf(html) { return html.replace(/<[^>]*>/g, '') }
 
+test('public lease details show the submitted description, yearly price and both fees', async () => {
+  const text = textOf(await fixture({
+    listingType: 'LEASE', propertyType: 'HOUSE', title: 'Spacious home with a private garden', description: '',
+    basePrice: 2000000, legalFee: 400000, commissionPct: 20, cautionFee: 0, serviceCharge: 0, agencyFee: 0,
+    unitPrices: {}, bedroomTypes: [],
+  }).render())
+  assert.match(text, /Residential home for lease/)
+  assert.match(text, /Spacious home with a private garden/)
+  assert.match(text, /For lease/)
+  assert.match(text, /\/ year/)
+  assert.match(text, /Price per year₦2,000,000/)
+  assert.match(text, /Agreement fee₦400,000/)
+  assert.match(text, /Platform fee \(20%\)₦400,000/)
+  assert.match(text, /Total listed amount₦2,800,000/)
+})
+
 test('the complete card is a keyboard-accessible link to its public listing', () => {
   const Card = loadSource('src/components/ui/PropertyCard.tsx', {
     'next/image': image, '@/lib/property-display': display,
@@ -75,9 +93,19 @@ test('public details query only verified listings and select no owner, tenant, d
   assert.equal(state.calls[0], 'connection')
   const query = state.calls[1]
   assert.deepEqual(query.where, { id: propertyId, status: 'VERIFIED' })
-  for (const field of ['owner', 'ownerId', 'units', 'leases', 'documents', 'state', 'latitude', 'longitude', 'inspectionContactType', 'inspectionContactName', 'inspectionContactPhone']) assert.equal(query.select[field], undefined)
-  assert.doesNotMatch(html, /private@example.invalid|PRIVATE_TENANT|PRIVATE_DOCUMENT|PRIVATE_STATE|private-owner/)
+  for (const field of ['owner', 'ownerId', 'units', 'leases', 'documents', 'state', 'latitude', 'longitude', 'inspectionContactType', 'inspectionContactName', 'inspectionContactPhone', 'propertyRelationship', 'ownerRelationship', 'directOwnerName', 'directOwnerPhone', 'directOwnerAddress']) assert.equal(query.select[field], undefined)
+  assert.doesNotMatch(html, /private@example.invalid|PRIVATE_TENANT|PRIVATE_DOCUMENT|PRIVATE_STATE|private-owner|PRIVATE_RELATIONSHIP|PRIVATE_OWNER_/)
   assert.match(html, /Verified listing/)
+})
+
+test('public listings display free-text features for every listing type without exposing owner contact details', async () => {
+  for (const listingType of ['RENTAL', 'SALE', 'SHORTLET', 'LEASE']) {
+    const html = await fixture({ listingType, features: 'Borehole water\nSecurity <script>example</script>' }).render()
+    assert.match(html, /Features of Property/)
+    assert.match(html, /Borehole water\nSecurity &lt;script&gt;example&lt;\/script&gt;/)
+    assert.doesNotMatch(html, /<script>|PRIVATE_OWNER_|PRIVATE_RELATIONSHIP/)
+  }
+  assert.doesNotMatch(await fixture({ features: null }).render(), /Features of Property/)
 })
 
 test('unpublished, rejected and inactive listings return 404 to direct URL requests', async () => {
@@ -185,13 +213,13 @@ test('public listings route inspection requests to company email and phone and h
   assert.match(html, /Schedule an inspection/)
   assert.match(html, /Email us/)
   assert.match(html, /Call us/)
-  assert.match(html, /09015417805/)
-  assert.match(html, /href="tel:\+2349015417805"/)
-  assert.match(html, /mailto:imapctproperties01@gmail.com/)
+  assert.match(html, /07083804443/)
+  assert.match(html, /href="tel:\+2347083804443"/)
+  assert.match(html, /mailto:contact@theimpactproperties\.com/)
   assert.doesNotMatch(html, /Private Inspection Agent|234 801 234 5678|tel:\+2348012345678|private@example.invalid/)
   const legacy = await fixture({ inspectionContactName: null, inspectionContactPhone: null }).render()
   assert.match(legacy, /Schedule an inspection/)
-  assert.match(legacy, /href="tel:\+2349015417805"/)
+  assert.match(legacy, /href="tel:\+2347083804443"/)
 })
 
 test('inspection emails include the correct listing reference, title and scheduling prompts', () => {
@@ -199,7 +227,7 @@ test('inspection emails include the correct listing reference, title and schedul
   const title = '2-bedroom Flat in Ikeja & Lagos'
   const url = new URL(getInspectionEmailHref(propertyId, title))
   assert.equal(url.protocol, 'mailto:')
-  assert.equal(url.pathname, 'imapctproperties01@gmail.com')
+  assert.equal(url.pathname, 'contact@theimpactproperties.com')
   assert.equal(url.searchParams.get('subject'), `Schedule an inspection: ${propertyId}`)
   const body = url.searchParams.get('body')
   assert.ok(body.includes(title))

@@ -5,6 +5,7 @@ export const listingTabs = [
   { value: 'rent', label: 'Rent', listingType: 'RENTAL', heading: 'Properties for rent' },
   { value: 'buy', label: 'Buy', listingType: 'SALE', heading: 'Properties for sale' },
   { value: 'shortlet', label: 'Shortlet', listingType: 'SHORTLET', heading: 'Shortlets' },
+  { value: 'lease', label: 'Lease', listingType: 'LEASE', heading: 'Properties for lease' },
 ] as const
 export const propertyTypes = ['APARTMENT', 'HOUSE', 'DUPLEX', 'LAND', 'COMMERCIAL', 'OTHER'] as const
 

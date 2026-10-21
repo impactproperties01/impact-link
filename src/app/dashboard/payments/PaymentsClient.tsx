@@ -1,174 +1,54 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Download, CheckCircle2, AlertCircle, Receipt, Filter } from 'lucide-react'
+import Link from 'next/link'
+import { Search, Receipt, ExternalLink } from 'lucide-react'
+import { formatNaira, formatUnitName } from '@/lib/property-display'
+import { formatDashboardDate, type DashboardPaymentRecord } from '@/lib/dashboard-metrics'
 
-export default function PaymentsClient({ properties }: { properties: any[] }) {
-  // Aggregate data globally
-  let globalExpected = 0
-  let globalCollected = 0
-  const globalMockPayments: any[] = []
+type PaymentsClientProps = {
+  payments: DashboardPaymentRecord[]
+  summary: { rentCollected: number; outstanding: number; year: number }
+  totalPayments: number
+  totalPages: number
+  page: number
+  paginationHref?: string
+}
 
-  properties.forEach(property => {
-    const units = property.units || []
-    
-    units.forEach((unit: any) => {
-      const price = Number(unit.price || 0)
-      globalExpected += price
-      
-      if (unit.status === 'OCCUPIED') {
-        globalCollected += price
-        globalMockPayments.push({
-          id: unit.id,
-          propertyTitle: property.title,
-          tenantName: unit.tenantName,
-          unitName: unit.name,
-          amount: price,
-          date: unit.rentStartDate || new Date().toISOString(),
-          method: 'Bank Transfer'
-        })
-      }
-    })
-  })
-
-  const globalOutstanding = globalExpected - globalCollected
+export default function PaymentsClient({ payments, summary, totalPayments, totalPages, page, paginationHref = '/dashboard/payments' }: PaymentsClientProps) {
   const [searchTerm, setSearchTerm] = useState('')
-
-  const filteredPayments = globalMockPayments.filter((p: any) => 
-    p.tenantName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.unitName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.propertyTitle?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-  }
+  const query = searchTerm.trim().toLowerCase()
+  const filteredPayments = payments.filter((payment) => `${payment.tenantName} ${payment.propertyAddress} ${payment.status}`.toLowerCase().includes(query))
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10 min-h-screen pb-24 font-sans">
-      <div className="mb-8">
-        <h1 className="text-[24px] lg:text-[28px] font-extrabold text-[#091F11]">Global Financials</h1>
-        <p className="text-[14px] text-gray-500 mt-1">Track revenue and outstanding balances across your entire portfolio.</p>
+    <div className="mx-auto max-w-7xl space-y-6 pb-20">
+      <header><h1 className="text-2xl font-extrabold text-brand-dark md:text-3xl">Payments &amp; Financials</h1><p className="mt-2 text-sm text-gray-500">Track recorded rent payments across your properties.</p></header>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-emerald-100 bg-white p-5"><p className="text-sm font-semibold text-gray-500">Rent Collected</p><p className="mt-2 text-2xl font-extrabold text-brand-forest">{formatNaira(summary.rentCollected)}</p><p className="mt-2 text-xs text-gray-400">Recorded payments in {summary.year}</p></div>
+        <div className="rounded-2xl border border-red-100 bg-white p-5"><p className="text-sm font-semibold text-gray-500">Outstanding Rent</p><p className="mt-2 text-2xl font-extrabold text-red-600">{formatNaira(summary.outstanding)}</p><p className="mt-2 text-xs text-gray-400">Unpaid rent due today or earlier</p></div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5"><p className="text-sm font-semibold text-gray-500">Payment Records</p><p className="mt-2 text-2xl font-extrabold text-brand-dark">{totalPayments}</p><p className="mt-2 text-xs text-gray-400">Paid and unpaid rent across your portfolio</p></div>
       </div>
-
-      {/* Global Financial KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-5 lg:p-6 rounded-2xl lg:rounded-[24px] border border-gray-100 shadow-sm flex flex-col justify-center">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center">
-              <Receipt className="w-4 h-4 text-gray-500" />
-            </div>
-            <span className="text-[12px] lg:text-[13px] font-bold text-gray-500 uppercase tracking-wide">Expected Revenue</span>
-          </div>
-          <span className="text-[24px] lg:text-[32px] font-extrabold text-[#091F11]">₦{globalExpected.toLocaleString()}</span>
-          <span className="text-[11px] lg:text-[12px] text-gray-400 font-medium mt-1">Based on 100% portfolio occupancy</span>
-        </div>
-
-        <div className="bg-white p-5 lg:p-6 rounded-2xl lg:rounded-[24px] border border-[#BBF7D0] shadow-sm flex flex-col justify-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-[#F0FDF4] rounded-bl-full -z-10 opacity-50"></div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-[#F0FDF4] flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4 text-[#005C3A]" />
-            </div>
-            <span className="text-[12px] lg:text-[13px] font-bold text-[#005C3A] uppercase tracking-wide">Total Collected</span>
-          </div>
-          <span className="text-[24px] lg:text-[32px] font-extrabold text-[#091F11]">₦{globalCollected.toLocaleString()}</span>
-          <span className="text-[11px] lg:text-[12px] text-gray-500 font-medium mt-1">From {globalMockPayments.length} active tenants globally</span>
-        </div>
-
-        <div className="bg-white p-5 lg:p-6 rounded-2xl lg:rounded-[24px] border border-red-100 shadow-sm flex flex-col justify-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-bl-full -z-10 opacity-50"></div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
-              <AlertCircle className="w-4 h-4 text-red-500" />
-            </div>
-            <span className="text-[12px] lg:text-[13px] font-bold text-red-500 uppercase tracking-wide">Total Outstanding</span>
-          </div>
-          <span className="text-[24px] lg:text-[32px] font-extrabold text-red-600">₦{globalOutstanding.toLocaleString()}</span>
-          <span className="text-[11px] lg:text-[12px] text-gray-500 font-medium mt-1">From vacant or unpaid units</span>
-        </div>
-      </div>
-
-      {/* Global Transactions Ledger */}
-      <div className="bg-white rounded-2xl lg:rounded-[24px] border border-gray-100 shadow-sm overflow-hidden relative">
-        <div className="p-4 lg:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Search tenant, unit, or property..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-[13px] font-medium outline-none focus:border-[#005C3A]"
-            />
-          </div>
-          <button className="flex items-center justify-center px-4 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-[13px] font-bold hover:bg-gray-50 transition-colors shrink-0">
-            <Filter className="w-4 h-4" /> <span className="ml-1.5">Export</span>
-          </button>
-        </div>
-
-        {globalMockPayments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50/50 border-b border-gray-100">
-                  <th className="py-3 lg:py-4 px-4 lg:px-6 text-[11px] lg:text-[12px] font-bold text-gray-500 uppercase tracking-wider">Tenant</th>
-                  <th className="py-3 lg:py-4 px-4 lg:px-6 text-[11px] lg:text-[12px] font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Property & Unit</th>
-                  <th className="py-3 lg:py-4 px-4 lg:px-6 text-[11px] lg:text-[12px] font-bold text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="py-3 lg:py-4 px-4 lg:px-6 text-[11px] lg:text-[12px] font-bold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Date Paid</th>
-                  <th className="py-3 lg:py-4 px-4 lg:px-6 text-[11px] lg:text-[12px] font-bold text-gray-500 uppercase tracking-wider hidden md:table-cell">Status</th>
-                  <th className="py-3 lg:py-4 px-4 lg:px-6 text-[11px] lg:text-[12px] font-bold text-gray-500 uppercase tracking-wider text-right">Receipt</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredPayments.map((payment: any) => (
-                  <tr key={payment.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="py-3 lg:py-4 px-4 lg:px-6">
-                      <div className="font-extrabold text-[#091F11] text-[13px] lg:text-[14px]">{payment.tenantName}</div>
-                      {/* Mobile Fallback */}
-                      <div className="text-[11px] text-gray-500 mt-0.5 font-medium sm:hidden">
-                        {payment.propertyTitle} <span className="font-bold text-[#005C3A]">({payment.unitName})</span>
-                      </div>
-                    </td>
-                    <td className="py-3 lg:py-4 px-4 lg:px-6 hidden sm:table-cell">
-                      <div className="text-[13px] font-bold text-[#091F11]">{payment.propertyTitle}</div>
-                      <div className="text-[11px] text-gray-500 font-medium">Unit: <span className="text-[#005C3A] font-bold">{payment.unitName}</span></div>
-                    </td>
-                    <td className="py-3 lg:py-4 px-4 lg:px-6">
-                      <div className="font-extrabold text-[#091F11] text-[13px] lg:text-[14px]">₦{Number(payment.amount).toLocaleString()}</div>
-                    </td>
-                    <td className="py-3 lg:py-4 px-4 lg:px-6 hidden lg:table-cell">
-                      <div className="text-[12px] lg:text-[13px] font-medium text-gray-600">
-                        {formatDate(payment.date)}
-                      </div>
-                    </td>
-                    <td className="py-3 lg:py-4 px-4 lg:px-6 hidden md:table-cell">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] lg:text-[11px] font-bold rounded-lg border bg-[#F0FDF4] text-[#005C3A] border-[#BBF7D0]">
-                        <CheckCircle2 className="w-3 h-3" /> Paid
-                      </span>
-                    </td>
-                    <td className="py-3 lg:py-4 px-4 lg:px-6 text-right">
-                      <button className="inline-flex items-center justify-center w-8 h-8 lg:w-auto lg:px-3 lg:py-1.5 bg-white border border-gray-200 text-[#091F11] text-[11px] font-bold rounded-lg hover:bg-gray-50 transition-colors">
-                        <Download className="w-4 h-4 lg:mr-1.5" /> <span className="hidden lg:inline">Receipt</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
+        <div className="border-b border-gray-100 p-4"><label className="relative block sm:max-w-sm"><Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" aria-hidden="true" /><span className="sr-only">Search payments on this page</span><input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search this page by tenant, property or status" className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-forest" /></label></div>
+        {filteredPayments.length ? (
+          <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="px-4 py-3">Tenant &amp; property</th><th className="px-4 py-3">Amount</th><th className="px-4 py-3">Due date</th><th className="px-4 py-3">Date paid</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Receipt</th></tr></thead>
+            <tbody className="divide-y divide-gray-100">{filteredPayments.map((payment) => (
+              <tr key={payment.id} className="hover:bg-gray-50/50">
+                <td className="min-w-48 px-4 py-4"><p className="font-bold text-brand-dark">{payment.tenantName}</p>{payment.unitName && <p className="mt-1 text-xs text-gray-500">Unit: {formatUnitName(payment.unitName)}</p>}<Link href={`/dashboard/properties/${payment.propertyId}`} className="mt-1 block text-xs text-brand-forest hover:underline">{payment.propertyAddress}</Link></td>
+                <td className="whitespace-nowrap px-4 py-4 font-bold">{formatNaira(payment.amount)}</td>
+                <td className="whitespace-nowrap px-4 py-4 text-gray-500">{formatDashboardDate(payment.dueDate)}</td>
+                <td className="whitespace-nowrap px-4 py-4 text-gray-500">{payment.datePaid ? formatDashboardDate(payment.datePaid) : 'Not recorded'}</td>
+                <td className="px-4 py-4"><span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${payment.status === 'Paid' ? 'bg-emerald-50 text-brand-forest' : payment.status === 'Overdue' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-700'}`}>{payment.status}</span></td>
+                <td className="px-4 py-4">{payment.receiptUrl ? <a href={payment.receiptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-forest hover:underline">Receipt<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a> : <span className="text-xs text-gray-400">Not uploaded</span>}</td>
+              </tr>
+            ))}</tbody>
+          </table></div>
         ) : (
-          <div className="py-16 flex flex-col items-center justify-center text-center px-4">
-            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-              <Receipt className="w-8 h-8 text-gray-300" />
-            </div>
-            <h3 className="text-[18px] font-extrabold text-[#091F11] mb-2">No payments recorded</h3>
-            <p className="text-[14px] text-gray-500 max-w-sm">
-              Your global payment history will appear here once you assign units and record payments across your properties.
-            </p>
-          </div>
+          <div className="flex flex-col items-center gap-3 px-5 py-14 text-center"><Receipt className="h-10 w-10 text-gray-300" aria-hidden="true" /><h2 className="font-bold text-brand-dark">{payments.length ? 'No matching payments' : 'No payment records yet'}</h2><p className="max-w-md text-sm text-gray-500">{payments.length ? 'Try another search on this page.' : 'Recorded rent payments will appear here. An occupied unit or a renewed rent period does not by itself confirm that money was received.'}</p></div>
         )}
-      </div>
+      </section>
+      {totalPages > 1 && <nav aria-label="Payment pages" className="flex items-center justify-between gap-3 text-sm"><span className="text-gray-500">Page {page} of {totalPages}</span><div className="flex gap-3">{page > 1 && <Link href={`${paginationHref}?page=${page - 1}`} className="rounded-xl border border-gray-200 bg-white px-4 py-2 font-semibold">Previous</Link>}{page < totalPages && <Link href={`${paginationHref}?page=${page + 1}`} className="rounded-xl bg-brand-forest px-4 py-2 font-semibold text-white">Next</Link>}</div></nav>}
     </div>
   )
 }

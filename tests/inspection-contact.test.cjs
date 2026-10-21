@@ -19,7 +19,7 @@ function loadSource(file, mocks = {}) {
 const contact = loadSource('src/lib/inspection-contact.ts')
 const schema = loadSource('src/components/properties/schema.ts', { '@/lib/inspection-contact': contact })
 const Contact = loadSource('src/components/properties/InspectionContact.tsx').default
-const base = { listingType: 'RENTAL', propertyType: 'LAND', state: 'Lagos', locationArea: 'Ikeja', address: '10 Example Street', basePrice: 100000, size: 600, bedroomTypes: [], documents: [], inspectionContactType: 'OWNER' }
+const base = { declarationAccepted: true, listingType: 'RENTAL', propertyType: 'LAND', title: 'Property with road access', state: 'Lagos', locationArea: 'Ikeja', address: '10 Example Street', basePrice: 100000, size: 600, bedroomTypes: [], documents: [], inspectionContactType: 'OWNER', propertyRelationship: 'DIRECT_OWNER', directOwnerName: 'Account Owner', directOwnerPhone: '08012345678', directOwnerAddress: '20 Owner Street, Lagos', features: 'Good road access' }
 const owner = { name: 'Account Owner', phone: '08012345678' }
 
 function submission({ profile = owner, signedIn = true } = {}) {
@@ -71,7 +71,7 @@ test('Use owner saves current database name and phone and ignores supplied owner
 })
 
 test('custom inspection contact is trimmed and persisted for rent, sale and shortlet listings', async () => {
-  for (const listingType of ['RENTAL', 'SALE', 'SHORTLET']) {
+  for (const listingType of ['RENTAL', 'SALE', 'SHORTLET', 'LEASE']) {
     const state = submission({ profile: { name: null, phone: null } })
     const result = await state.create({ listingType, inspectionContactType: 'CUSTOM', inspectionContactName: '  Viewing Agent  ', inspectionContactPhone: ' +234 801 234 5678 ' })
     assert.equal(result.success, true)
@@ -126,7 +126,7 @@ function wizard(step, listingType = 'RENTAL', profile = owner) {
   let hook = 0
   const mocks = {
     react: { ...React, useEffect: () => {}, useState: () => { const i = hook++; return [states[i], (next) => { states[i] = typeof next === 'function' ? next(states[i]) : next }] } },
-    'react-hook-form': { useForm: () => ({ watch: (key) => data[key], getValues: () => data, trigger: async () => true, setError: (...args) => errors.push(args), handleSubmit: () => () => {} }), FormProvider: ({ children }) => children },
+    'react-hook-form': { useForm: () => ({ watch: (key) => data[key], getValues: () => data, setValue: (key, value) => { data[key] = value }, register: (name) => ({ name }), formState: { errors: {} }, trigger: async () => true, setError: (...args) => errors.push(args), handleSubmit: () => () => {} }), FormProvider: ({ children }) => children },
     './schema': schema,
     '@/lib/inspection-contact': contact,
     '@/actions/properties': { createPropertyAction: async () => saves.push(true) },
@@ -135,14 +135,15 @@ function wizard(step, listingType = 'RENTAL', profile = owner) {
   mocks['./SuccessScreen'] = { __esModule: true, default: () => null }
   const Form = loadSource('src/components/properties/AddPropertyForm.tsx', mocks).default
   const tree = Form({ ownerContact: profile })
-  const buttons = []
+  const buttons = [], inputs = []
   function walk(element) {
     if (!React.isValidElement(element)) return
     if (element.type === 'button') buttons.push(element)
+    if (element.type === 'input') inputs.push(element)
     React.Children.forEach(element.props.children, walk)
   }
   walk(tree)
-  return { states, errors, saves, buttons }
+  return { states, errors, saves, buttons, inputs, data }
 }
 
 test('Media Next advances to Inspection without submitting a listing', async () => {
@@ -159,7 +160,7 @@ test('inspection gates missing owner details and advances complete details to th
   await missing.buttons.find((button) => button.props.children === 'Next').props.onClick({ preventDefault() {} })
   assert.equal(missing.states[0], 5)
   assert.equal(missing.errors[0][0], 'inspectionContactType')
-  for (const listingType of ['RENTAL', 'SALE', 'SHORTLET']) {
+  for (const listingType of ['RENTAL', 'SALE', 'SHORTLET', 'LEASE']) {
     const state = wizard(5, listingType)
     await state.buttons.find((button) => button.props.children === 'Next').props.onClick({ preventDefault() {} })
     assert.equal(state.states[0], 6)
@@ -168,7 +169,7 @@ test('inspection gates missing owner details and advances complete details to th
 })
 
 test('only the final preview step has a submit button for each listing type', () => {
-  for (const [listingType, preview] of [['RENTAL', 6], ['SALE', 7], ['SHORTLET', 6]]) {
+  for (const [listingType, preview] of [['RENTAL', 6], ['SALE', 7], ['SHORTLET', 6], ['LEASE', 6]]) {
     const previous = wizard(preview - 1, listingType)
     assert.equal(previous.buttons.some((button) => button.props.type === 'submit'), false)
     const state = wizard(preview, listingType)
@@ -179,11 +180,36 @@ test('only the final preview step has a submit button for each listing type', ()
   }
 })
 
+test('the property declaration appears on the existing final preview for every listing type and resets when editing', () => {
+  for (const [listingType, preview] of [['RENTAL', 6], ['SALE', 7], ['SHORTLET', 6], ['LEASE', 6]]) {
+    const previous = wizard(preview - 1, listingType)
+    assert.equal(previous.inputs.some((input) => input.props.name === 'declarationAccepted'), false)
+    const final = wizard(preview, listingType)
+    const checkbox = final.inputs.find((input) => input.props.name === 'declarationAccepted')
+    assert.equal(checkbox.props.type, 'checkbox')
+    assert.equal(checkbox.props.required, true)
+    // The first button is the existing back button.
+    final.buttons[0].props.onClick()
+    assert.equal(final.data.declarationAccepted, false)
+  }
+})
+
+test('property submissions without explicit declaration acceptance fail before uploads and database writes', async () => {
+  for (const declarationAccepted of [false, undefined, 'true', 1]) {
+    const state = submission()
+    const result = await state.create({ declarationAccepted })
+    assert.equal(result.success, false)
+    assert.equal(state.uploads.length, 0)
+    assert.equal(state.writes.length, 0)
+  }
+})
+
 test('preview resolves owner or custom inspection details and does not invent contacts for old listings', () => {
   for (const mode of ['OWNER', 'CUSTOM']) {
     const Preview = loadSource('src/components/properties/steps/Step6Preview.tsx', {
       'react-hook-form': { useFormContext: () => ({ watch: () => ({ ...base, inspectionContactType: mode, inspectionContactName: 'Viewing Agent', inspectionContactPhone: '08099999999' }) }) },
       '../InspectionContact': { __esModule: true, default: Contact }, '@/lib/inspection-contact': contact,
+      '../PropertyRelationshipDetails': { __esModule: true, default: loadSource('src/components/properties/PropertyRelationshipDetails.tsx').default },
     }).default
     const html = renderToStaticMarkup(React.createElement(Preview, { imageFiles: [], ownerContact: owner }))
     assert.match(html, mode === 'OWNER' ? /Account Owner/ : /Viewing Agent/)

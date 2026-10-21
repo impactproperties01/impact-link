@@ -6,9 +6,21 @@ import prisma from "@/lib/prisma"
 import { cookies } from "next/headers"
 import bcrypt from "bcryptjs"
 import { isRegistrationRole } from '@/lib/roles'
+import { TERMS_VERSION, TERMS_COOKIE_NAME } from '@/lib/terms'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter: {
+    ...PrismaAdapter(prisma),
+    async createUser({ id, ...user }) {
+      const cookieStore = await cookies()
+      const pendingRole = cookieStore.get('impact_link_pending_role')?.value
+      const pendingTerms = cookieStore.get(TERMS_COOKIE_NAME)?.value
+      if (!isRegistrationRole(pendingRole) || pendingTerms !== TERMS_VERSION) {
+        throw new Error('Accept the Terms and Conditions before creating an account.')
+      }
+      return prisma.user.create({ data: { ...user, role: pendingRole, termsAcceptedAt: new Date(), termsVersion: TERMS_VERSION } })
+    },
+  },
   session: {
     strategy: "jwt", 
   },
@@ -75,9 +87,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const cookieStore = await cookies()
         const pendingRole = cookieStore.get('impact_link_pending_role')?.value
+        const pendingTerms = cookieStore.get(TERMS_COOKIE_NAME)?.value
 
         // If the user is brand new AND they didn't come from the Sign Up page (no cookie)
-        if (!existingUser && !isRegistrationRole(pendingRole)) {
+        if (!existingUser && (!isRegistrationRole(pendingRole) || pendingTerms !== TERMS_VERSION)) {
           // Abort the creation process and redirect them to the registration page
           return '/register' 
         }
@@ -116,11 +129,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               dbUser.role = pendingRole
               
               try { cookieStore.delete('impact_link_pending_role') } catch (e) {}
+              try { cookieStore.delete(TERMS_COOKIE_NAME) } catch (e) {}
             }
           } else {
             // For existing users, just clean up the cookie if they accidentally brought one
             const cookieStore = await cookies()
             try { cookieStore.delete('impact_link_pending_role') } catch (e) {}
+            try { cookieStore.delete(TERMS_COOKIE_NAME) } catch (e) {}
           }
 
           // Guarantee token syncs perfectly with the established DB state

@@ -7,14 +7,13 @@ import { useSession } from 'next-auth/react' // <-- Added
 import { completeLandlordOnboarding } from '@/actions/onboarding' // <-- Added
 import { 
   ChevronLeft, User, Phone, Mail, MapPin, 
-  Upload, ArrowRight, Megaphone, Settings, BarChart2, Plus, Check, Loader2 
+  Upload, ArrowRight, Megaphone, Settings, BarChart2, Plus, Loader2
 } from 'lucide-react' // <-- Added Loader2
 
 export default function PropertyOwnerOnboarding() {
   const router = useRouter()
   const { update } = useSession() // <-- Allows us to refresh the user's JWT cookie
   const [step, setStep] = useState<1 | 2>(1)
-  const [agreed, setAgreed] = useState(false)
   const [isPending, startTransition] = useTransition() // <-- Handles the loading state
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -39,7 +38,6 @@ export default function PropertyOwnerOnboarding() {
   // --- NEW: Custom Submit Handler ---
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!agreed) return
 
     const formData = new FormData(e.currentTarget)
     if (imageFile) {
@@ -167,24 +165,33 @@ export default function PropertyOwnerOnboarding() {
                 </div>
               </div>
 
-              {/* Checkbox */}
-              <div className="flex items-start gap-3 mt-6 mb-2 pt-2">
-                <button 
-                  type="button"
-                  onClick={() => setAgreed(!agreed)}
-                  className={`w-5 h-5 rounded-[6px] flex items-center justify-center shrink-0 mt-0.5 border transition-colors ${agreed ? 'bg-brand-emerald border-brand-emerald text-white' : 'border-gray-300 bg-white'}`}
-                >
-                  {agreed && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
-                </button>
-                <p className="text-[12px] text-gray-600 leading-snug cursor-pointer select-none" onClick={() => setAgreed(!agreed)}>
-                  I confirm that I am the property owner or I am authorised to list this property on behalf of the owner.
-                </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="stateOfOrigin" className="block text-[12px] font-bold text-[#111C15] mb-1.5 pl-1">State of Origin</label>
+                  <input id="stateOfOrigin" name="stateOfOrigin" type="text" required minLength={2} maxLength={100} placeholder="Enter your state of origin" className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-[14px] text-[13px] focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald/20 text-brand-dark" />
+                </div>
+                <div>
+                  <label htmlFor="lga" className="block text-[12px] font-bold text-[#111C15] mb-1.5 pl-1">Local Government Area (LGA)</label>
+                  <input id="lga" name="lga" type="text" required minLength={2} maxLength={100} placeholder="Enter your LGA of origin" className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-[14px] text-[13px] focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald/20 text-brand-dark" />
+                </div>
               </div>
+
+              <fieldset className="space-y-4 pt-2">
+                <legend className="text-[14px] font-bold text-brand-dark mb-3">Next of kin</legend>
+                <div>
+                  <label htmlFor="nextOfKinName" className="block text-[12px] font-bold text-[#111C15] mb-1.5 pl-1">Full name</label>
+                  <input id="nextOfKinName" name="nextOfKinName" type="text" required minLength={2} maxLength={100} placeholder="Enter your next of kin’s full name" className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-[14px] text-[13px] focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald/20 text-brand-dark" />
+                </div>
+                <div>
+                  <label htmlFor="nextOfKinPhone" className="block text-[12px] font-bold text-[#111C15] mb-1.5 pl-1">Phone number</label>
+                  <input id="nextOfKinPhone" name="nextOfKinPhone" type="tel" inputMode="tel" required maxLength={30} placeholder="e.g. 08012345678 or +2348012345678" className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-[14px] text-[13px] focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald/20 text-brand-dark" />
+                </div>
+              </fieldset>
 
               {/* --- CHANGED: Disabled on pending, shows processing spinner --- */}
               <button 
                 type="submit" 
-                disabled={!agreed || isPending} 
+                disabled={isPending}
                 className="w-full mt-4 bg-brand-forest hover:bg-brand-dark text-white py-4 rounded-[14px] text-[14px] font-bold flex items-center justify-center gap-2 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isPending ? (

@@ -43,11 +43,17 @@ enum ListingType {
   RENTAL
   SALE
   SHORTLET
+  LEASE
 }
 
 enum InspectionContactType {
   OWNER
   CUSTOM
+}
+
+enum PropertyRelationship {
+  DIRECT_OWNER
+  OTHER
 }
 
 enum PaymentStatus {
@@ -74,6 +80,12 @@ model User {
   role          Role      @default(TENANT)
   phone         String?
   address       String?
+  stateOfOrigin String?
+  lga           String?
+  nextOfKinName String?
+  nextOfKinPhone String?
+  termsAcceptedAt DateTime?
+  termsVersion    String?
   isVerified    Boolean   @default(false) // Use this for KYC / ID Verification
   
   // Auth.js required fields
@@ -139,6 +151,16 @@ model Property {
   id                 String         @id @default(uuid())
   title              String
   description        String
+
+  // Ownership details are separate from the account submitting the listing.
+  propertyRelationship PropertyRelationship?
+  ownerRelationship    String?
+  directOwnerName       String?
+  directOwnerPhone      String?
+  directOwnerAddress    String?
+  features              String? @db.Text
+  declarationAcceptedAt DateTime?
+  declarationText       String? @db.Text
   
   // Location
   state              String?        
@@ -215,6 +237,7 @@ model Unit {
   rentStartDate  DateTime? // NEW
   rentEndDate    DateTime? // NEW
   tenantId       String?  
+  payments       Payment[]
 
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -250,8 +273,15 @@ model Payment {
   receiptUrl      String?       
 
   // Relationships
-  leaseId         String
-  lease           Lease         @relation(fields: [leaseId], references: [id])
+  leaseId         String?
+  lease           Lease?        @relation(fields: [leaseId], references: [id], onDelete: Restrict)
+  unitId          String?
+  unit            Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  tenantName      String?
+  unitName        String?
+  requestId       String?       @unique
+
+  @@index([unitId])
 }
 
 model Ticket {
