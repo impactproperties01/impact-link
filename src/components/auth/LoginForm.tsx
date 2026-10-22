@@ -7,8 +7,9 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, Mail, Lock, EyeOff, Eye, ArrowRight, Smartphone, MailWarning, Loader2 } from 'lucide-react'
 import { signIn } from 'next-auth/react'
 import { loginUser, resendVerificationEmail } from '@/actions/auth'
+import { authErrorMessage } from '@/lib/auth-errors'
 
-export default function LoginForm() {
+export default function LoginForm({ oauthError }: { oauthError?: string } = {}) {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   
@@ -16,6 +17,22 @@ export default function LoginForm() {
   const [emailValue, setEmailValue] = useState('') 
 
   const [state, formAction, isPending] = useActionState(loginUser, null)
+  const [oauthPending, setOAuthPending] = useState(false)
+  const [oauthStartError, setOAuthStartError] = useState('')
+  const socialError = oauthStartError || authErrorMessage(oauthError)
+
+  const handleGoogleSignIn = async () => {
+    if (oauthPending || isPending) return
+    setOAuthPending(true)
+    setOAuthStartError('')
+    try {
+      await signIn('google', { redirectTo: '/dashboard' })
+    } catch {
+      setOAuthStartError('Could not connect to Google sign-in. Check your connection and try again.')
+    } finally {
+      setOAuthPending(false)
+    }
+  }
   
   // Resend Verification Email logic
   const [isResending, startResendTransition] = useTransition()
@@ -83,6 +100,7 @@ export default function LoginForm() {
           </div>
 
           {/* --- DYNAMIC ERROR MESSAGES --- */}
+          {socialError && <div role="alert" className="mb-5 p-4 bg-red-50 border border-red-100 text-red-700 text-[13px] font-medium rounded-[14px]">{socialError}</div>}
           {state?.error === 'unverified_email' ? (
             <div className="mb-5 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-[14px]">
               <div className="flex items-start gap-3 mb-2">
@@ -163,7 +181,7 @@ export default function LoginForm() {
 
             <button 
               type="submit" 
-              disabled={isPending}
+              disabled={isPending || oauthPending}
               className="w-full mt-2 bg-brand-forest hover:bg-brand-dark text-white py-4 rounded-[14px] text-[14px] font-bold flex items-center justify-center gap-2 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? (
@@ -185,11 +203,12 @@ export default function LoginForm() {
           <div className="space-y-3">
             <button 
               type="button"
-              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-              className="w-full flex items-center justify-center gap-3 py-3.5 bg-white border border-gray-100 hover:bg-gray-50 rounded-[14px] transition-colors"
+              onClick={handleGoogleSignIn}
+              disabled={isPending || oauthPending}
+              className="w-full flex items-center justify-center gap-3 py-3.5 bg-white border border-gray-100 hover:bg-gray-50 rounded-[14px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Image src="https://authjs.dev/img/providers/google.svg" alt="Google" width={20} height={20} />
-              <span className="text-[13px] font-bold text-brand-dark">Continue with Google</span>
+              <span className="text-[13px] font-bold text-brand-dark">{oauthPending ? 'Connecting to Google...' : 'Continue with Google'}</span>
             </button>
             <button 
               type="button"
@@ -209,7 +228,7 @@ export default function LoginForm() {
           </div>
 
           <p className="text-center text-[13.5px] text-gray-500 font-medium mt-8 mb-2">
-            Don't have an account? <Link href="/register" className="text-brand-forest font-bold hover:text-brand-dark transition-colors ml-1">Sign Up</Link>
+            Don&apos;t have an account? <Link href="/register" className="text-brand-forest font-bold hover:text-brand-dark transition-colors ml-1">Sign Up</Link>
           </p>
 
         </div>

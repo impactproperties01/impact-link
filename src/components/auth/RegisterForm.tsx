@@ -2,7 +2,6 @@
 
 import { useActionState, useState } from 'react'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
 import { registerUser, prepareOAuthRegistration } from '@/actions/auth'
 import { Mail, Lock, ArrowRight, UserCheck, ChevronLeft, Eye, EyeOff, Send } from 'lucide-react'
 import { signIn } from 'next-auth/react'
@@ -22,7 +21,6 @@ export default function RegisterForm({
   defaultRole?: string
   onBack: () => void 
 }) {
-  const router = useRouter()
   const [state, formAction, isPending] = useActionState(registerUser, null)
   
   const [showPassword, setShowPassword] = useState(false)
@@ -44,7 +42,7 @@ export default function RegisterForm({
         setOAuthPending(false)
         return
       }
-      await signIn(provider, { callbackUrl: '/dashboard' })
+      await signIn(provider, { redirectTo: '/dashboard' })
     } catch {
       setTermsError('Could not start signup. Please try again.')
       setOAuthPending(false)
@@ -64,7 +62,7 @@ export default function RegisterForm({
           </div>
           <h2 className="text-2xl font-extrabold text-brand-dark mb-3 tracking-tight">Check your email</h2>
           <p className="text-[14px] text-gray-500 font-medium mb-8 leading-relaxed">
-            We've sent a secure verification link to your email address. Please click the link to activate your account.
+            We&apos;ve sent a secure verification link to your email address. Please click the link to activate your account.
           </p>
           <Link 
             href="/login"
